@@ -96,7 +96,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.blur
 
 private val CorFundoApp = Color(0xFFECF0ED)
-private val CorPrincipal = Color(0xFF5F8D84)
+private val CorPrincipal = Color(0xFF1B5B3A)
 private val CorTexto = Color(0xFF123C3A)
 private val CorFundoSaldo = Color(0xFFE1EBE7)
 private val CorCard = Color(0xFFE6EFEA)
@@ -283,13 +283,16 @@ fun TransacoesScreen(
                     )
                 }
 
-                item(key = "total_faturas") {
-                    CardTotalFaturas(
-                        total = totalFaturas,
-                        quantidade = faturas.size,
-                        visivel = uiState.valoresVisiveis,
-                        aba = uiState.abaSelecionada
-                    )
+                // Mostrar o card "Total" somente quando a aba for ABERTAS
+                if (uiState.abaSelecionada == AbaFaturas.ABERTAS) {
+                    item(key = "total_faturas") {
+                        CardTotalFaturas(
+                            total = totalFaturas,
+                            quantidade = faturas.size,
+                            visivel = uiState.valoresVisiveis,
+                            aba = uiState.abaSelecionada
+                        )
+                    }
                 }
 
                 if (faturas.isEmpty()) {
@@ -926,199 +929,431 @@ private fun CardFaturaCompleta(
     val cartao = fatura.cartao
     val limite = cartao.limiteCentavos
     val usado = fatura.totalCentavos.coerceAtMost(limite)
-    val percentual = if (limite > 0L) (usado * 100 / limite).toFloat() / 100f else 0f
+    val percentual = if (limite > 0L) {
+        (usado.toFloat() / limite.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
     val disponivel = (limite - usado).coerceAtLeast(0L)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        border = BorderStroke(1.dp, Color(0xFFEAEFF0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column {
-            Column(Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val context = LocalContext.current
-                    val logoRes = remember(cartao.marcaChave) {
-                        val nomeArquivo = cartao.marcaChave
-                        context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName)
-                    }
+        // Alterado somente para a fatura fechada/paga.
+        // A fatura aberta continua com 16.dp, como estava.
+        val basePadding = if (fatura.paga) 10.dp else 16.dp
 
-                    // Ícone menor e proporcional para não cortar
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(if (logoRes == 0) cartao.corHex.toColor() else Color(0xFFF0F4EF)),
-                        contentAlignment = Alignment.Center
+        Column {
+            Column(
+                modifier = Modifier.padding(basePadding)
+            ) {
+                if (fatura.paga) {
+                    /*
+                     * BLOCO EXCLUSIVO DA FATURA FECHADA/PAGA.
+                     *
+                     * Estrutura:
+                     * - Esquerda: ícone, nome, badge, mês e vencimento.
+                     * - Direita: valor no topo e botão abaixo dele.
+                     */
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        if (logoRes != 0) {
-                            Icon(
-                                painter = painterResource(id = logoRes),
-                                contentDescription = cartao.nome,
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        } else {
-                            Text(
-                                text = cartao.nome.take(2).uppercase(),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                        val context = LocalContext.current
+
+                        val logoRes = remember(cartao.marcaChave) {
+                            context.resources.getIdentifier(
+                                cartao.marcaChave,
+                                "drawable",
+                                context.packageName
                             )
                         }
-                    }
 
-                    Spacer(Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = cartao.nome,
-                                color = Color(0xFF111827),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                            Spacer(Modifier.width(8.dp))
-
-                            // Badge "Pendente" / "Pago" mais achatado
-                            if (!fatura.paga) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFFFFFBEB),
-                                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
-                                ) {
-                                    Text(
-                                        text = "Pendente",
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-                                        color = Color(0xFFD97706),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF0F4EF)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (logoRes != 0) {
+                                Icon(
+                                    painter = painterResource(id = logoRes),
+                                    contentDescription = cartao.nome,
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             } else {
+                                Text(
+                                    text = cartao.nome.take(2).uppercase(),
+                                    color = cartao.corHex.toColor(),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = cartao.nome,
+                                    color = CorTexto,
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     color = Color(0xFFF0FDF4),
-                                    border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = Color(0xFFBBF7D0)
+                                    )
                                 ) {
                                     Text(
                                         text = "Pago",
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                        modifier = Modifier.padding(
+                                            horizontal = 8.dp,
+                                            vertical = 6.dp
+                                        ),
                                         color = Color(0xFF16A34A),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = "Fatura cartão: ${
+                                    fatura.mesAno.format(
+                                        DateTimeFormatter.ofPattern(
+                                            "MMMM yyyy",
+                                            Locale("pt", "BR")
+                                        )
+                                    )
+                                }",
+                                color = CorTexto.copy(alpha = 0.65f),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            val diaVenc = cartao.diaVencimento.coerceAtMost(
+                                fatura.mesAno.lengthOfMonth()
+                            )
+
+                            val vencimentoData = fatura.mesAno.atDay(diaVenc)
+
+                            Text(
+                                text = "Venceu: ${
+                                    vencimentoData.format(
+                                        DateTimeFormatter.ofPattern(
+                                            "dd 'de' MMMM",
+                                            Locale("pt", "BR")
+                                        )
+                                    )
+                                }",
+                                color = CorTexto.copy(alpha = 0.6f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Área direita exclusiva da fatura paga:
+                        // valor no topo e botão logo abaixo.
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.Top
+                        ) {
+                            Text(
+                                text = fatura.totalCentavos.formatarMoeda(visivel),
+                                color = CorTexto,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(end = 10.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = onExpandir,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(
+                                    horizontal = 12.dp,
+                                    vertical = 8.dp
+                                ),
+                                border = BorderStroke(
+                                    width = 1.dp,
+                                    color = Color(0xFFE5E7EB)
+                                )
+                            ) {
+                                Text(
+                                    text = "Ver fatura",
+                                    color = Color(0xFF1F2937),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
+                    // Mantém um espaço pequeno abaixo apenas no card fechado.
+                    Spacer(modifier = Modifier.height(2.dp))
+                } else {
+                    /*
+                     * BLOCO DA FATURA ABERTA.
+                     * Mantido exatamente com a estrutura e os tamanhos
+                     * originais do seu código.
+                     */
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        val context = LocalContext.current
+                        val logoRes = remember(cartao.marcaChave) {
+                            context.resources.getIdentifier(
+                                cartao.marcaChave,
+                                "drawable",
+                                context.packageName
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF0F4EF)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (logoRes != 0) {
+                                Icon(
+                                    painter = painterResource(id = logoRes),
+                                    contentDescription = cartao.nome,
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = cartao.nome.take(2).uppercase(),
+                                    color = cartao.corHex.toColor(),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.width(12.dp))
+
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = cartao.nome,
+                                    color = CorTexto,
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Spacer(Modifier.width(8.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFFFFFBEB),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        Color(0xFFFDE68A)
+                                    )
+                                ) {
+                                    Text(
+                                        text = "Pendente",
+                                        modifier = Modifier.padding(
+                                            horizontal = 8.dp,
+                                            vertical = 6.dp
+                                        ),
+                                        color = Color(0xFFD97706),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = "Vence ${cartao.diaVencimento} de ${
+                                            fatura.mesAno.format(
+                                                DateTimeFormatter.ofPattern(
+                                                    "MMM",
+                                                    Locale("pt", "BR")
+                                                )
+                                            ).lowercase()
+                                        }",
+                                        color = Color(0xFF9CA3AF),
+                                        style = MaterialTheme.typography.bodySmall
                                     )
                                 }
                             }
                         }
-                        Spacer(Modifier.height(2.dp))
+
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.Top,
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text(
+                                text = fatura.totalCentavos.formatarMoeda(visivel),
+                                color = CorTexto,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+
+                            Spacer(Modifier.height(4.dp))
+
+                            Text(
+                                text = "de ${limite.formatarMoeda(true)}",
+                                color = Color(0xFF9CA3AF),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val percentualInt = (percentual * 100).toInt()
+
                         Text(
-                            text = "Vence ${cartao.diaVencimento} de ${fatura.mesAno.format(DateTimeFormatter.ofPattern("MMM", Locale("pt","BR"))).lowercase()}.",
+                            text = "$percentualInt% do limite utilizado",
                             color = Color(0xFF9CA3AF),
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.labelSmall
+                        )
+
+                        Text(
+                            text = "${disponivel.formatarMoeda(true)} disponível",
+                            color = Color(0xFF9CA3AF),
+                            style = MaterialTheme.typography.labelSmall
                         )
                     }
 
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = fatura.totalCentavos.formatarMoeda(visivel),
-                            color = Color(0xFF111827),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Text(
-                            text = "de ${limite.formatarMoeda(true)}",
-                            color = Color(0xFF9CA3AF),
-                            style = MaterialTheme.typography.bodySmall
+                    Spacer(Modifier.height(8.dp))
+
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                    ) {
+                        drawRect(color = Color(0xFFF3F4F6))
+
+                        drawRect(
+                            color = CorPrincipal,
+                            size = androidx.compose.ui.geometry.Size(
+                                width = size.width * percentual.coerceIn(0f, 1f),
+                                height = size.height
+                            )
                         )
                     }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val percentualInt = (percentual * 100).toInt()
-                    Text(
-                        text = "$percentualInt% do limite utilizado",
-                        color = Color(0xFF9CA3AF),
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    Text(
-                        text = "${disponivel.formatarMoeda(true)} disponível",
-                        color = Color(0xFF9CA3AF),
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // Barra de progresso limpa feita por Canvas (sem bolinhas nas pontas)
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                ) {
-                    // Fundo da barra
-                    drawRect(color = Color(0xFFF3F4F6))
-                    // Preenchimento proporcional sem pontos extras
-                    drawRect(
-                        color = Color(0xFF225F44),
-                        size = androidx.compose.ui.geometry.Size(
-                            width = size.width * percentual.coerceIn(0f, 1f),
-                            height = size.height
-                        )
-                    )
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = diasParaVencerTexto(fatura),
-                    color = Color(0xFF9CA3AF),
-                    style = MaterialTheme.typography.bodyMedium
+            // Este divisor continua sendo exclusivo da fatura aberta.
+            if (!fatura.paga) {
+                HorizontalDivider(
+                    color = Color(0xFFF3F4F6),
+                    thickness = 1.dp
                 )
+            }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = onExpandir,
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-                    ) {
-                        Text("Ver fatura", color = Color(0xFF1F2937), fontWeight = FontWeight.SemiBold)
-                    }
+            // Esta área também permanece exclusiva da fatura aberta.
+            if (!fatura.paga) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 16.dp,
+                            vertical = 12.dp
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = diasParaVencerTexto(fatura),
+                        color = Color(0xFF9CA3AF),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
 
-                    androidx.compose.material3.Button(
-                        onClick = onPagar,
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF225F44))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.CheckCircle,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Pagar fatura", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onExpandir,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(
+                                horizontal = 12.dp,
+                                vertical = 8.dp
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                Color(0xFFE5E7EB)
+                            )
+                        ) {
+                            Text(
+                                text = "Ver fatura",
+                                color = Color(0xFF1F2937),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        androidx.compose.material3.Button(
+                            onClick = onPagar,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(
+                                horizontal = 12.dp,
+                                vertical = 8.dp
+                            ),
+                            colors = androidx.compose.material3.ButtonDefaults
+                                .buttonColors(
+                                    containerColor = CorPrincipal
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            Text(
+                                text = "Pagar fatura",
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
