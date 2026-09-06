@@ -88,6 +88,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
@@ -96,6 +97,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.blur
 import com.example.controlegastos.domain.model.TipoLancamento
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.window.Dialog
+
+
 
 private val CorFundoApp = Color(0xFFECF0ED)
 private val CorPrincipal = Color(0xFF1B5B3A)
@@ -123,6 +129,8 @@ fun TransacoesScreen(
     var faturaParaPagar by remember { mutableStateOf<FaturaCartao?>(null) }
     var contaSelecionada by remember { mutableStateOf<ContaSaldo?>(null) }
     var processandoPagamento by remember { mutableStateOf(false) }
+    var faturaParaVer by remember { mutableStateOf<FaturaCartao?>(null) }
+
 
     val faturas = if (uiState.abaSelecionada == AbaFaturas.ABERTAS) {
         uiState.faturasAbertas
@@ -148,7 +156,14 @@ fun TransacoesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .blur(
-                    radius = if (faturaParaPagar != null) 10.dp else 0.dp
+                    radius = if (
+                        faturaParaPagar != null ||
+                        faturaParaVer != null
+                    ) {
+                        10.dp
+                    } else {
+                        0.dp
+                    }
                 ),
             containerColor = CorFundoApp,
             topBar = {
@@ -327,11 +342,15 @@ fun TransacoesScreen(
                         expandida = fatura.cartao.id in uiState.cartoesExpandidos,
                         visivel = uiState.valoresVisiveis,
                         onExpandir = {
-                            viewModel.alternarCartao(fatura.cartao.id)
+                            faturaParaVer = fatura
                         },
                         onPagar = {
                             faturaParaPagar = fatura
                             contaSelecionada = null
+                        },
+                        onVerFatura = {
+                            // abre a telinha de ver fatura
+                            faturaParaVer = fatura
                         }
                     )
                 }
@@ -401,6 +420,17 @@ fun TransacoesScreen(
         }
     }
 
+
+    faturaParaVer?.let { fatura ->
+        DialogoVerFatura(
+            fatura = fatura,
+            despesasFixasDoMes = uiState.despesasFixas,
+            visivel = true,
+            onFechar = {
+                faturaParaVer = null
+            }
+        )
+    }
         // Fica fora do Scaffold para o diálogo não receber blur.
         faturaParaPagar?.let { fatura ->
             DialogoPagamento(
@@ -447,6 +477,16 @@ fun TransacoesScreen(
                 }
             )
         }
+
+    // Dialog para visualizar fatura (lançamentos + total fatura + total fixas)
+    faturaParaVer?.let { f ->
+        DialogoVerFatura(
+            fatura = f,
+            despesasFixasDoMes = uiState.despesasFixas,
+            visivel = uiState.valoresVisiveis,
+            onFechar = { faturaParaVer = null }
+        )
+    }
     }
 @Composable
 private fun TopBarTransacoes(
@@ -983,7 +1023,8 @@ private fun CardFaturaCompleta(
     expandida: Boolean,
     visivel: Boolean,
     onExpandir: () -> Unit,
-    onPagar: () -> Unit
+    onPagar: () -> Unit,
+    onVerFatura: () -> Unit
 ) {
     val cartao = fatura.cartao
     val limite = cartao.limiteCentavos
@@ -1368,7 +1409,7 @@ private fun CardFaturaCompleta(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         androidx.compose.material3.OutlinedButton(
-                            onClick = onExpandir,
+                            onClick = onVerFatura,
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(
                                 horizontal = 12.dp,
@@ -2152,6 +2193,332 @@ private fun DialogoPagamento(
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DialogoVerFatura(
+    fatura: FaturaCartao,
+    despesasFixasDoMes: List<DespesaDetalhada>,
+    visivel: Boolean,
+    onFechar: () -> Unit
+) {
+    if (!visivel) return
+
+    val despesas = remember(fatura.despesas) {
+        fatura.despesas.sortedByDescending { it.dataCompra }
+    }
+
+    Dialog(
+        onDismissRequest = onFechar,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+                shape = RoundedCornerShape(
+                    topStart = 26.dp,
+                    topEnd = 26.dp,
+                    bottomStart = 0.dp,
+                    bottomEnd = 0.dp
+                ),
+                color = Color.White
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Área superior com padding lateral:
+                    // handle, título e botão de fechar.
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = 24.dp,
+                                end = 24.dp,
+                                top = 10.dp
+                            )
+                    ) {
+                        // Handle superior do bottom sheet.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(20.dp),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 2.dp)
+                                    .size(
+                                        width = 38.dp,
+                                        height = 4.dp
+                                    )
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFE1E5E8))
+                            )
+                        }
+
+                        // Cabeçalho: título original + botão fechar.
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Fatura — ${fatura.cartao.nome}",
+                                color = CorTexto,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            IconButton(
+                                onClick = onFechar,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFFF4F6F8)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Fechar",
+                                        tint = Color(0xFF7C8795),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Divider sem padding lateral, igual ao diálogo de pagamento.
+                    HorizontalDivider(
+                        modifier = Modifier.fillMaxWidth(),
+                        thickness = 1.dp,
+                        color = Color(0xFFE9ECEF)
+                    )
+
+                    // Conteúdo recebe o padding lateral padrão do modal.
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = 24.dp,
+                                end = 24.dp,
+                                top = 20.dp,
+                                bottom = 20.dp
+                            )
+                    ) {
+                        // Área rolável de lançamentos.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(
+                                    min = 80.dp,
+                                    max = 420.dp
+                                )
+                        ) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(
+                                    bottom = 8.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(
+                                    items = despesas,
+                                    key = { it.id }
+                                ) { despesa ->
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = Color.White
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = Color(0xFFE4E7EA)
+                                        ),
+                                        elevation = CardDefaults.cardElevation(
+                                            defaultElevation = 0.dp
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            IconeCategoriaDoCardLocal(
+                                                iconeChave = despesa
+                                                    .categoriaIconeChave
+                                                    ?: "",
+                                                nomeCategoria = despesa.categoriaNome,
+                                                corHex = despesa.categoriaCorHex
+                                            )
+
+                                            Spacer(
+                                                modifier = Modifier.width(12.dp)
+                                            )
+
+                                            Column(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(
+                                                    text = despesa.descricao,
+                                                    color = CorTexto,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .bodyMedium
+                                                )
+
+                                                Row(
+                                                    verticalAlignment = Alignment
+                                                        .CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = despesa.categoriaNome,
+                                                        color = CorTexto.copy(
+                                                            alpha = 0.6f
+                                                        ),
+                                                        style = MaterialTheme
+                                                            .typography
+                                                            .bodySmall
+                                                    )
+
+                                                    // Mantém exatamente o texto original
+                                                    // e só exibe quando houver cartão.
+                                                    despesa.cartaoId?.let {
+                                                        Spacer(
+                                                            modifier = Modifier
+                                                                .width(8.dp)
+                                                        )
+
+                                                        Text(
+                                                            text = "• ${
+                                                                fatura.cartao.nome
+                                                            }",
+                                                            color = CorTexto.copy(
+                                                                alpha = 0.6f
+                                                            ),
+                                                            style = MaterialTheme
+                                                                .typography
+                                                                .bodySmall
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(
+                                                modifier = Modifier.width(8.dp)
+                                            )
+
+                                            Text(
+                                                text = despesa.valor
+                                                    .formatarMoeda(visivel),
+                                                color = CorTexto,
+                                                fontWeight = FontWeight.SemiBold,
+                                                style = MaterialTheme
+                                                    .typography
+                                                    .bodyMedium,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+
+                                item(key = "espaco_resumo_fatura") {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+
+                                item(key = "resumo_fatura") {
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = Color(0xFFF7F8FA)
+                                        ),
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = Color(0xFFE4E7EA)
+                                        ),
+                                        elevation = CardDefaults.cardElevation(
+                                            defaultElevation = 0.dp
+                                        )
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(16.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment
+                                                    .CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "Total da fatura",
+                                                    color = CorTexto.copy(
+                                                        alpha = 0.8f
+                                                    ),
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .bodyMedium
+                                                )
+
+                                                Spacer(
+                                                    modifier = Modifier.weight(1f)
+                                                )
+
+                                                Text(
+                                                    text = fatura.totalCentavos
+                                                        .formatarMoeda(visivel),
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = CorTexto,
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .bodyMedium
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Button(
+                            onClick = onFechar,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF225E43),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = "Fechar",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
