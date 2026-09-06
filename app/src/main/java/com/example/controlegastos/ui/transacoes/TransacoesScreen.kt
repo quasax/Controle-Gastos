@@ -86,6 +86,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.window.Dialog
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.filled.Close
@@ -94,6 +95,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.blur
+import com.example.controlegastos.domain.model.TipoLancamento
 
 private val CorFundoApp = Color(0xFFECF0ED)
 private val CorPrincipal = Color(0xFF1B5B3A)
@@ -137,6 +139,11 @@ fun TransacoesScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
+
+        var despesasFixasExpandidas by remember {
+            mutableStateOf(false)
+        }
+
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
@@ -330,17 +337,69 @@ fun TransacoesScreen(
                 }
 
                 item(key = "titulo_fixas") {
-                    TituloSecao(texto = "Despesas fixas")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                despesasFixasExpandidas =
+                                    !despesasFixasExpandidas
+                            }
+                            .padding(
+                                horizontal = 4.dp,
+                                vertical = 0.dp
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "DESPESAS FIXAS",
+                            color = Color(0xFF8A929B),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
+                        )
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        Text(
+                            text = "${
+                                uiState.despesasFixas
+                                    .sumOf { it.valor }
+                                    .formatarMoeda(uiState.valoresVisiveis)
+                            }/mês",
+                            color = Color(0xFF707983),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Icon(
+                            imageVector = if (despesasFixasExpandidas) {
+                                Icons.Default.KeyboardArrowUp
+                            } else {
+                                Icons.Default.KeyboardArrowDown
+                            },
+                            contentDescription = if (despesasFixasExpandidas) {
+                                "Recolher despesas fixas"
+                            } else {
+                                "Expandir despesas fixas"
+                            },
+                            tint = Color(0xFF9AA3A9),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
 
                 item(key = "card_fixas") {
                     CardDespesasFixas(
                         despesas = uiState.despesasFixas,
-                        visivel = uiState.valoresVisiveis
+                        visivel = uiState.valoresVisiveis,
+                        expandida = despesasFixasExpandidas
                     )
                 }
             }
         }
+    }
 
         // Fica fora do Scaffold para o diálogo não receber blur.
         faturaParaPagar?.let { fatura ->
@@ -388,7 +447,7 @@ fun TransacoesScreen(
                 }
             )
         }
-    }}
+    }
 @Composable
 private fun TopBarTransacoes(
     onVoltar: () -> Unit,
@@ -1426,72 +1485,166 @@ private fun ItemDespesaCartao(
 @Composable
 private fun CardDespesasFixas(
     despesas: List<DespesaDetalhada>,
-    visivel: Boolean
+    visivel: Boolean,
+    expandida: Boolean
 ) {
-    var expandida by remember { mutableStateOf(false) }
     val total = despesas.sumOf { it.valor }
+    val formatoCard = RoundedCornerShape(16.dp)
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = CorCard)
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 3.dp,
+                shape = formatoCard
+            ),
+        shape = formatoCard,
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 0.dp
+        )
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column {
+            // Este resumo fica sempre visível, mesmo com a lista fechada.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expandida = !expandida },
+                    .padding(
+                        horizontal = 16.dp,
+                        vertical = 14.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.AccountBalance,
-                    contentDescription = null,
-                    tint = CorPrincipal,
-                    modifier = Modifier.size(28.dp)
-                )
+                val context = LocalContext.current
 
-                Spacer(Modifier.width(12.dp))
+                val calendarRecRes = remember {
+                    context.resources.getIdentifier(
+                        "calendar_rec",
+                        "drawable",
+                        context.packageName
+                    )
+                }
 
-                Text(
-                    text = "Despesas fixas",
-                    modifier = Modifier.weight(1f),
-                    color = CorTexto,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFF0F4EF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (calendarRecRes != 0) {
+                        Image(
+                            painter = painterResource(
+                                id = calendarRecRes
+                            ),
+                            contentDescription = "Total recorrente",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalance,
+                            contentDescription = "Total recorrente",
+                            tint = CorPrincipal,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Total recorrente",
+                        color = CorTexto,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Text(
+                        text = "${despesas.size} despesas ativas",
+                        color = CorTexto.copy(alpha = 0.55f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
 
                 Text(
                     text = total.formatarMoeda(visivel),
                     color = CorTexto,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold
-                )
-
-                Icon(
-                    imageVector = if (expandida) {
-                        Icons.Default.KeyboardArrowUp
-                    } else {
-                        Icons.Default.KeyboardArrowDown
-                    },
-                    contentDescription = "Expandir despesas fixas",
-                    tint = CorTexto
                 )
             }
 
-            if (expandida) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 10.dp),
-                    color = CorPrincipal.copy(alpha = 0.18f)
-                )
+            // Este divisor também fica sempre visível.
+            HorizontalDivider(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFF0F2F1),
+                thickness = 1.dp
+            )
 
-                if (despesas.isEmpty()) {
-                    Text(
-                        text = "Nenhuma despesa fixa neste mês.",
-                        color = CorTexto.copy(alpha = 0.7f)
-                    )
-                } else {
-                    despesas.forEach { despesa ->
-                        ItemDespesaCartao(
-                            despesa = despesa,
-                            visivel = visivel
+            // Somente a lista de despesas é ocultada/revelada.
+            if (expandida) {
+                despesas.forEachIndexed { index, despesa ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                horizontal = 16.dp,
+                                vertical = 10.dp
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconeCategoriaDoCardLocal(
+                            iconeChave = despesa.categoriaIconeChave ?: "",
+                            nomeCategoria = despesa.categoriaNome,
+                            corHex = despesa.categoriaCorHex
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = despesa.descricao,
+                                color = CorTexto,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
+
+                            val tipoTexto = when (
+                                despesa.tipoLancamento
+                            ) {
+                                TipoLancamento.FIXA -> "Mensal"
+                                TipoLancamento.PARCELADA -> "Parcelada"
+                                TipoLancamento.UNICA -> "Única"
+                            }
+
+                            Text(
+                                text = tipoTexto,
+                                color = CorTexto.copy(alpha = 0.55f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Text(
+                            text = despesa.valor.formatarMoeda(visivel),
+                            color = Color(0xFF65707A),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    if (index != despesas.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFFF0F2F1),
+                            thickness = 1.dp
                         )
                     }
                 }
@@ -1499,6 +1652,45 @@ private fun CardDespesasFixas(
         }
     }
 }
+
+@Composable
+private fun IconeCategoriaDoCardLocal(
+    iconeChave: String,
+    nomeCategoria: String,
+    corHex: String?
+) {
+    val context = LocalContext.current
+    val chave = iconeChave.ifBlank { "" }
+    val resId = remember(chave) {
+        context.resources.getIdentifier(chave.lowercase(), "drawable", context.packageName)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFFF7F8F7)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (resId != 0) {
+            Icon(
+                painter = painterResource(id = resId),
+                contentDescription = nomeCategoria,
+                tint = Color.Unspecified,
+                modifier = Modifier.size(20.dp)
+            )
+        } else if (chave.ehEmojiLocal()) {
+            Text(text = chave, fontSize = 18.sp)
+        }
+
+        }
+    }
+
+
+private fun String.ehEmojiLocal(): Boolean {
+    return this.any { caractere -> caractere.code > 255 }
+}
+
 
 @Composable
 private fun TextoVazio(texto: String) {
