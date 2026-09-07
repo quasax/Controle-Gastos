@@ -25,5 +25,7 @@ data class DashboardUiState(
     val totalReceitas: Long = 0L,   // placeholder (centavos) -- ajuste se tiver fonte de receitas
 
     val numerosVisiveis: Boolean = true,
+    val nomeUsuario: String = "Você",
     val carregando: Boolean = true
+
 )

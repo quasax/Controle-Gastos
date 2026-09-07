@@ -32,11 +32,25 @@ class SettingsViewModel @Inject constructor(
             ultimoBackupEpochMillis = preferences.getLong(
                 CHAVE_ULTIMO_BACKUP,
                 0L
-            ).takeIf { it > 0L }
+            ).takeIf { it > 0L },
+            // RECUPERA O NOME SALVO OU DEFINE "Você" COMO PADRÃO
+            nomeUsuario = preferences.getString(CHAVE_NOME_USUARIO, "Você") ?: "Você"
         )
     )
 
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    // FUNÇÃO PARA ATUALIZAR E SALVAR O NOME DO USUÁRIO
+    fun atualizarNome(novoNome: String) {
+        preferences
+            .edit()
+            .putString(CHAVE_NOME_USUARIO, novoNome)
+            .apply()
+
+        _uiState.update {
+            it.copy(nomeUsuario = novoNome)
+        }
+    }
 
     fun exportar(uri: Uri) {
         executarOperacao {
@@ -68,8 +82,12 @@ class SettingsViewModel @Inject constructor(
                 uri = uri
             )
 
+            // Caso o backup traga um novo nome, podemos ler novamente do SharedPreferences se necessário
+            val nomeSalvo = preferences.getString(CHAVE_NOME_USUARIO, "Você") ?: "Você"
+
             _uiState.update {
                 it.copy(
+                    nomeUsuario = nomeSalvo,
                     mensagemSucesso = "Backup restaurado com sucesso."
                 )
             }
@@ -118,5 +136,6 @@ class SettingsViewModel @Inject constructor(
     private companion object {
         const val PREFERENCES_NAME = "backup_preferences"
         const val CHAVE_ULTIMO_BACKUP = "ultimo_backup_epoch_millis"
+        const val CHAVE_NOME_USUARIO = "chave_nome_usuario" // Nova chave para o nome
     }
 }

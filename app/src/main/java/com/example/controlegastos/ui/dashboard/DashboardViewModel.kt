@@ -1,6 +1,8 @@
 package com.example.controlegastos.ui.dashboard
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.controlegastos.domain.model.ResumoMensal
 import com.example.controlegastos.domain.repository.ContaSaldoRepository
@@ -17,20 +19,33 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import java.time.YearMonth
 import javax.inject.Inject
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
+    application: Application,
     private val getResumoMensalUseCase: GetResumoMensalUseCase,
     private val getGastosPorCategoriaUseCase: GetGastosPorCategoriaUseCase,
     private val despesaRepository: DespesaRepository,
     private val cartaoRepository: CartaoRepository,
     private val contaSaldoRepository: ContaSaldoRepository
-) : ViewModel() {
+) : AndroidViewModel(application) {
+
+    // SharedPreferences compartilhado para ler o nome do usuário salvo nas configurações
+    private val preferences = application.getSharedPreferences(
+        "backup_preferences",
+        Context.MODE_PRIVATE
+    )
 
     private val mesSelecionado = MutableStateFlow(YearMonth.now())
     private val numerosVisiveis = MutableStateFlow(true)
+
+    // Estado reativo para o nome do usuário
+    private val nomeUsuarioFlow = MutableStateFlow(
+        preferences.getString("chave_nome_usuario", "Você") ?: "Você"
+    )
 
     // fluxos auxiliares
     private val cartoesAtivosFlow = cartaoRepository.observarAtivos()
@@ -43,26 +58,23 @@ class DashboardViewModel @Inject constructor(
         .observarFaturasAbertasPorMes()
         .map { faturas -> faturas.sumOf { it.totalCentavos } }
 
-    // placeholder para receitas (substituir se tiver fonte real)
     private val receitasFlow = MutableStateFlow(0L)
 
     val uiState: StateFlow<DashboardUiState> = combine(
         mesSelecionado,
-        numerosVisiveis
-    ) { mesAno, valoresVisiveis ->
-        mesAno to valoresVisiveis
+        numerosVisiveis,
+        nomeUsuarioFlow
+    ) { mesAno, valoresVisiveis, nome ->
+        Triple(mesAno, valoresVisiveis, nome)
     }
-        .flatMapLatest { (mesAno, valoresVisiveis) ->
-            // flows que dependem do mes selecionado
+        .flatMapLatest { (mesAno, valoresVisiveis, nomeUsuario) ->
             val resumoFlow = getResumoMensalUseCase(mes = mesAno.monthValue, ano = mesAno.year)
             val gastosPorCategoriaFlow = getGastosPorCategoriaUseCase(mes = mesAno.monthValue, ano = mesAno.year)
             val despesasDoMesFlow = despesaRepository.observarDespesasDetalhadasPorMes(mes = mesAno.monthValue, ano = mesAno.year)
 
-            // passo 1: combine resumo, gastosPorCategoria e despesasDoMes
             combine(resumoFlow, gastosPorCategoriaFlow, despesasDoMesFlow) { resumo, gastos, despesas ->
                 Triple(resumo, gastos, despesas)
             }.flatMapLatest { (resumo, gastosPorCategoria, despesas) ->
-                // passo 2: combine o resultado com os outros flows (cartoes, saldo, faturas, receitas)
                 combine(
                     cartoesAtivosFlow,
                     saldoPositivoFlow,
@@ -79,10 +91,10 @@ class DashboardViewModel @Inject constructor(
                         totalFaturas = totalFaturas,
                         totalReceitas = totalReceitas,
                         numerosVisiveis = valoresVisiveis,
+                        nomeUsuario = nomeUsuario, // Passando o nome atualizado para o UiState
                         carregando = false
                     )
                 }.catch { e ->
-                    // fallback em caso de erro
                     emit(
                         DashboardUiState(
                             mesSelecionado = mesAno,
@@ -94,6 +106,7 @@ class DashboardViewModel @Inject constructor(
                             totalFaturas = 0L,
                             totalReceitas = 0L,
                             numerosVisiveis = valoresVisiveis,
+                            nomeUsuario = nomeUsuario,
                             carregando = false
                         )
                     )
@@ -105,6 +118,11 @@ class DashboardViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = DashboardUiState(carregando = false)
         )
+
+    fun carregarNomeUsuario() {
+        val nomeSalvo = preferences.getString("chave_nome_usuario", "Você") ?: "Você"
+        nomeUsuarioFlow.value = nomeSalvo
+    }
 
     fun irParaMesAnterior() {
         mesSelecionado.value = mesSelecionado.value.minusMonths(1)

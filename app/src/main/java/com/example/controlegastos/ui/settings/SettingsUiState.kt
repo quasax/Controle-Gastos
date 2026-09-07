@@ -4,5 +4,6 @@ data class SettingsUiState(
     val isLoading: Boolean = false,
     val mensagemSucesso: String? = null,
     val mensagemErro: String? = null,
-    val ultimoBackupEpochMillis: Long? = null
+    val ultimoBackupEpochMillis: Long? = null,
+    val nomeUsuario: String = "Você" // <-- Adicionado aqui
 )

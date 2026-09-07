@@ -120,6 +120,7 @@ import java.text.NumberFormat
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 
+
 private val CorCardSaldoAccent = Color(0xFF1B6B4A)
 @Composable
 fun DashboardScreen(
@@ -130,17 +131,20 @@ fun DashboardScreen(
     onVerPendencias: () -> Unit,
     onAbrirConfiguracoes: () -> Unit,
     onAbrirCartoes: () -> Unit,
-    nomeUsuario: String = "Você",
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedIndex by remember { mutableStateOf(0) }
 
+    LaunchedEffect(Unit) {
+        viewModel.carregarNomeUsuario()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         androidx.compose.material3.Scaffold(
             topBar = {
                 CardSaldoPrincipalNovo(
-                    nomeUsuario = nomeUsuario,
+                    nomeUsuario = uiState.nomeUsuario,
                     saldoAtual = uiState.saldoPositivo,        // usa o saldo exposto no uiState
                     receitas = uiState.totalReceitas,         // total de receitas (placeholder se não houver)
                     gastos = uiState.resumoMensal.totalGasto, // totalGasto vindo do resumo mensal
@@ -517,7 +521,7 @@ fun EstruturaGastosCard(
 
     val totalCategorias = gastosPorCategoria.sumOf { it.totalGasto }
 
-    // calculo de porcentagens ajustadas (somam 100)
+    // cálculo de porcentagens ajustadas (somam 100)
     val rawPercents = gastosPorCategoria.map { gasto ->
         if (totalCategorias > 0L) gasto.totalGasto.toFloat() / totalCategorias.toFloat() * 100f else 0f
     }
@@ -533,7 +537,20 @@ fun EstruturaGastosCard(
             i++
         }
     }
-    val adjustedPercents = floorInts.toList() // list of Ints summing to 100
+    val adjustedPercents = floorInts.toList()
+
+    // 1. ANIMAÇÃO DO DONUT PRINCIPAL (Esquerda)
+    val mainDonutProgress by animateFloatAsState(
+        targetValue = if (animate) 1f else 0f,
+        animationSpec = tween(durationMillis = 800)
+    )
+
+    // 2. ANIMAÇÃO DO CÍRCULO DE ORÇAMENTO (Direita)
+    val usedFraction = if (totalBudget > 0L) (totalGasto.toFloat() / totalBudget.toFloat()).coerceIn(0f, 1f) else 0f
+    val animatedUsed by animateFloatAsState(
+        targetValue = if (animate) usedFraction else 0f,
+        animationSpec = tween(durationMillis = 800)
+    )
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -542,7 +559,7 @@ fun EstruturaGastosCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Cabeçalho: título + mês
+            // Cabeçalho (Título em Cinza)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -550,17 +567,18 @@ fun EstruturaGastosCard(
             ) {
                 Text(
                     text = "ESTRUTURA DE GASTOS · ${java.time.YearMonth.now().format(DateTimeFormatter.ofPattern("MMM", Locale("pt","BR"))).uppercase(Locale("pt","BR"))}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFF8A929B), // Cinza padronizado
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Linha principal: donut à esquerda + resumo orcamento à direita
+            // Linha principal: donut à esquerda + resumo orçamento à direita
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                // Donut
+                // Donut Esquerda (Agora animado com mainDonutProgress)
                 Box(modifier = Modifier.size(150.dp)) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val thickness = 22.dp.toPx()
@@ -575,7 +593,6 @@ fun EstruturaGastosCard(
                             style = Stroke(width = thickness, cap = StrokeCap.Butt)
                         )
 
-                        val animationProg = if (animate) 1f else 0f
                         gastosPorCategoria.forEach { gasto ->
                             val sweep = if (totalCategorias > 0L) (gasto.totalGasto.toFloat() / totalCategorias.toFloat() * 360f) else 0f
                             if (sweep > 0f) {
@@ -583,7 +600,7 @@ fun EstruturaGastosCard(
                                 drawArc(
                                     color = gasto.corHex.toComposeColor(),
                                     startAngle = startAngle + (gap / 2f),
-                                    sweepAngle = (sweep * animationProg) - gap,
+                                    sweepAngle = (sweep * mainDonutProgress) - gap,
                                     useCenter = false,
                                     style = Stroke(width = thickness, cap = StrokeCap.Butt)
                                 )
@@ -606,10 +623,7 @@ fun EstruturaGastosCard(
 
                 // Lado direito: percentual usado e valores do orçamento
                 Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val usedFraction = if (totalBudget > 0L) (totalGasto.toFloat() / totalBudget.toFloat()).coerceIn(0f, 1f) else 0f
-                    val animatedUsed by animateFloatAsState(targetValue = if (animate) usedFraction else 0f, animationSpec = tween(durationMillis = 800))
-
-                    // circulo pequeno com percent
+                    // círculo pequeno com percent (Animado com animatedUsed)
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(82.dp)) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val stroke = 10.dp.toPx()
@@ -652,13 +666,19 @@ fun EstruturaGastosCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Lista de categorias com barras (animadas) - usamos adjustedPercents apenas para exibir %
+            // 3. ANIMAÇÃO DAS BARRAS DE CATEGORIAS
             Column(modifier = Modifier.fillMaxWidth()) {
                 val totalForBars = if (totalCategorias > 0L) totalCategorias.toFloat() else 1f
 
                 gastosPorCategoria.forEachIndexed { idx, gasto ->
                     val fraction = if (totalForBars > 0f) gasto.totalGasto.toFloat() / totalForBars else 0f
-                    val animatedFraction by animateFloatAsState(targetValue = if (animate) fraction else 0f, animationSpec = tween(durationMillis = 700 + idx * 80))
+
+                    // Cada barra ganha seu próprio animateFloatAsState com um pequeno delay em cascata
+                    val animatedFraction by animateFloatAsState(
+                        targetValue = if (animate) fraction else 0f,
+                        animationSpec = tween(durationMillis = 700 + idx * 80)
+                    )
+
                     val displayPercent = adjustedPercents.getOrNull(idx) ?: 0
 
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -682,7 +702,7 @@ fun EstruturaGastosCard(
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
                                 Box(modifier = Modifier
-                                    .fillMaxWidth(animatedFraction)
+                                    .fillMaxWidth(animatedFraction) // Usa a fração animada
                                     .height(8.dp)
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(gasto.corHex.toComposeColor())
@@ -693,8 +713,6 @@ fun EstruturaGastosCard(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
-
-            // Removed maiorCategoria highlight from here (will be rendered outside)
         }
     }
 }
