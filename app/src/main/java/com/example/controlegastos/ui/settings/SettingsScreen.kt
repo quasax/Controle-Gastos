@@ -71,7 +71,7 @@ private fun TopBarConfiguracoes(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFEEF2EF))
+            .background(Color(0xFFECF0ED))
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
@@ -271,7 +271,9 @@ fun SettingsScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color(0xFFECF0ED))
                 .padding(innerPadding)
+
         ) {
             Column(
                 modifier = Modifier

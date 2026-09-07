@@ -102,6 +102,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.example.controlegastos.domain.model.Cartao
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 
 private val CorGastos = Color(0xFF5F8D84)
 private val CorGastosClara = Color(0xFF9DBCB5)
@@ -121,31 +125,104 @@ fun GastosScreen(
 
         AlertDialog(
             onDismissRequest = { despesaParaExcluir = null },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = Color.White,
             title = {
-                Text("Excluir despesa?")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Ícone circular de alerta/exclusão
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFDF2F2)), // Vermelho bem suave
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = null,
+                            tint = Color(0xFFD84315), // Cor de alerta/destrutiva do seu app
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Excluir despesa?",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF143045), // Azul escuro/grafite padrão
+                        textAlign = TextAlign.Center
+                    )
+                }
             },
             text = {
                 Text(
-                    "A despesa \"${despesa.descricao}\" será removida definitivamente."
+                    text = "A despesa \"${despesa.descricao}\" será removida definitivamente. Esta ação não pode ser desfeita.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF8A929B), // Cinza padronizado
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
                 )
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.excluirDespesa(despesa.id)
-                        despesaParaExcluir = null
-                    }
+                // Usamos uma Row para colocar os dois botões lado a lado com largura igual
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Excluir")
+                    // Botão Cancelar (Outlined)
+                    OutlinedButton(
+                        onClick = { despesaParaExcluir = null },
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFEBDFE3)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF143045),
+                            containerColor = Color.Transparent
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                    ) {
+                        Text(
+                            text = "Cancelar",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold // ou SemiBold
+                        )
+                    }
+
+                    // Botão Excluir (Preenchido com cor de alerta)
+                    Button(
+                        onClick = {
+                            viewModel.excluirDespesa(despesa.id)
+                            despesaParaExcluir = null
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFD84315), // Tom avermelhado/destrutivo
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                    ) {
+                        Text(
+                            text = "Excluir",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             },
-            dismissButton = {
-                TextButton(
-                    onClick = { despesaParaExcluir = null }
-                ) {
-                    Text("Cancelar")
-                }
-            }
+            // Deixamos o dismissButton vazio pois colocamos ambos os botões organizados dentro do confirmButton
+            dismissButton = {}
         )
     }
 

@@ -182,6 +182,7 @@ fun DashboardScreen(
 
                     FaturasProximas(
                         cartoes = uiState.cartoes,
+                        visivel = uiState.numerosVisiveis,
                         onVerTodas = onVerTodasTransacoes,
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -251,7 +252,6 @@ fun CardSaldoPrincipalNovo(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
         ) {
-            // Bolhas decorativas do fundo
             Box(
                 modifier = Modifier
                     .size(220.dp)
@@ -272,7 +272,6 @@ fun CardSaldoPrincipalNovo(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 18.dp)
             ) {
-                // LINHA TOPO
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -299,7 +298,6 @@ fun CardSaldoPrincipalNovo(
                         }
                     }
 
-                    // Botões (Olho e Engrenagem)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
@@ -339,7 +337,6 @@ fun CardSaldoPrincipalNovo(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // SALDO DISPONÍVEL
                 Text(
                     text = "SALDO DISPONÍVEL",
                     fontSize = 10.sp,
@@ -365,7 +362,7 @@ fun CardSaldoPrincipalNovo(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = aposPagar.formatarMoeda(true),
+                        text = aposPagar.formatarMoeda(visivel), // <--- USANDO `visivel` AQUI
                         color = textoClaro,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -374,13 +371,12 @@ fun CardSaldoPrincipalNovo(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // MINI CARD INTERNO: RECEITAS, GASTOS E FATURAS (Ajustado e compactado)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(miniCardBg)
-                        .padding(vertical = 8.dp) // Reduzido de 10.dp para 8.dp para compactar mais
+                        .padding(vertical = 8.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -393,12 +389,12 @@ fun CardSaldoPrincipalNovo(
                         ) {
                             Text(text = "RECEITAS", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = textoCinza)
                             Text(
-                                text = receitas.formatarMoeda(true),
+                                text = receitas.formatarMoeda(visivel), // <--- USANDO `visivel` AQUI
                                 fontSize = 13.sp,
                                 color = Color(0xFF55D4A3),
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
-                                modifier = Modifier.offset(y = (-3).dp) // PUXA o valor para cima, ignorando o espaço da fonte
+                                modifier = Modifier.offset(y = (-3).dp)
                             )
                         }
 
@@ -411,12 +407,12 @@ fun CardSaldoPrincipalNovo(
                         ) {
                             Text(text = "GASTOS", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = textoCinza)
                             Text(
-                                text = gastos.formatarMoeda(true),
+                                text = gastos.formatarMoeda(visivel), // <--- USANDO `visivel` AQUI
                                 fontSize = 13.sp,
                                 color = Color(0xFFFF9A9A),
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
-                                modifier = Modifier.offset(y = (-3).dp) // PUXA o valor para cima
+                                modifier = Modifier.offset(y = (-3).dp)
                             )
                         }
 
@@ -429,12 +425,12 @@ fun CardSaldoPrincipalNovo(
                         ) {
                             Text(text = "FATURAS", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = textoCinza)
                             Text(
-                                text = totalFaturas.formatarMoeda(true),
+                                text = totalFaturas.formatarMoeda(visivel), // <--- USANDO `visivel` AQUI
                                 fontSize = 13.sp,
                                 color = Color(0xFFFFD166),
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
-                                modifier = Modifier.offset(y = (-3).dp) // PUXA o valor para cima
+                                modifier = Modifier.offset(y = (-3).dp)
                             )
                         }
                     }
@@ -443,7 +439,6 @@ fun CardSaldoPrincipalNovo(
         }
     }
 }
-
 
 @Composable
 private fun ConteudoDashboard(
@@ -521,7 +516,6 @@ fun EstruturaGastosCard(
 
     val totalCategorias = gastosPorCategoria.sumOf { it.totalGasto }
 
-    // cálculo de porcentagens ajustadas (somam 100)
     val rawPercents = gastosPorCategoria.map { gasto ->
         if (totalCategorias > 0L) gasto.totalGasto.toFloat() / totalCategorias.toFloat() * 100f else 0f
     }
@@ -539,13 +533,11 @@ fun EstruturaGastosCard(
     }
     val adjustedPercents = floorInts.toList()
 
-    // 1. ANIMAÇÃO DO DONUT PRINCIPAL (Esquerda)
     val mainDonutProgress by animateFloatAsState(
         targetValue = if (animate) 1f else 0f,
         animationSpec = tween(durationMillis = 800)
     )
 
-    // 2. ANIMAÇÃO DO CÍRCULO DE ORÇAMENTO (Direita)
     val usedFraction = if (totalBudget > 0L) (totalGasto.toFloat() / totalBudget.toFloat()).coerceIn(0f, 1f) else 0f
     val animatedUsed by animateFloatAsState(
         targetValue = if (animate) usedFraction else 0f,
@@ -559,7 +551,6 @@ fun EstruturaGastosCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Cabeçalho (Título em Cinza)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -568,7 +559,7 @@ fun EstruturaGastosCard(
                 Text(
                     text = "ESTRUTURA DE GASTOS · ${java.time.YearMonth.now().format(DateTimeFormatter.ofPattern("MMM", Locale("pt","BR"))).uppercase(Locale("pt","BR"))}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF8A929B), // Cinza padronizado
+                    color = Color(0xFF8A929B),
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
                 )
@@ -576,15 +567,12 @@ fun EstruturaGastosCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Linha principal: donut à esquerda + resumo orçamento à direita
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                // Donut Esquerda (Agora animado com mainDonutProgress)
                 Box(modifier = Modifier.size(150.dp)) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val thickness = 22.dp.toPx()
                         var startAngle = -90f
 
-                        // background ring
                         drawArc(
                             color = Color(0xFFEEF0F2),
                             startAngle = 0f,
@@ -609,21 +597,18 @@ fun EstruturaGastosCard(
                         }
                     }
 
-                    // Texto central
                     Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = "ESTE MÊS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(text = totalGasto.formatarMoeda(numerosVisiveis), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(text = "de ${totalBudget.formatarMoeda(true)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(text = "de ${totalBudget.formatarMoeda(numerosVisiveis)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) // <--- USANDO `numerosVisiveis`
                     }
                 }
 
                 Spacer(modifier = Modifier.width(18.dp))
 
-                // Lado direito: percentual usado e valores do orçamento
                 Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    // círculo pequeno com percent (Animado com animatedUsed)
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(82.dp)) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val stroke = 10.dp.toPx()
@@ -655,25 +640,23 @@ fun EstruturaGastosCard(
                     Column(horizontalAlignment = Alignment.Start, modifier = Modifier.padding(start = 12.dp)) {
                         Text(text = "ORÇAMENTO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text(text = totalBudget.formatarMoeda(true), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF143045))
+                        Text(text = totalBudget.formatarMoeda(numerosVisiveis), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF143045)) // <--- USANDO `numerosVisiveis`
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(text = "de ${totalGasto.formatarMoeda(numerosVisiveis)} gastos", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text(text = restante.formatarMoeda(true), style = MaterialTheme.typography.bodySmall, color = Color(0xFF1B6B4A), fontWeight = FontWeight.SemiBold)
+                        Text(text = restante.formatarMoeda(numerosVisiveis), style = MaterialTheme.typography.bodySmall, color = Color(0xFF1B6B4A), fontWeight = FontWeight.SemiBold) // <--- USANDO `numerosVisiveis`
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 3. ANIMAÇÃO DAS BARRAS DE CATEGORIAS
             Column(modifier = Modifier.fillMaxWidth()) {
                 val totalForBars = if (totalCategorias > 0L) totalCategorias.toFloat() else 1f
 
                 gastosPorCategoria.forEachIndexed { idx, gasto ->
                     val fraction = if (totalForBars > 0f) gasto.totalGasto.toFloat() / totalForBars else 0f
 
-                    // Cada barra ganha seu próprio animateFloatAsState com um pequeno delay em cascata
                     val animatedFraction by animateFloatAsState(
                         targetValue = if (animate) fraction else 0f,
                         animationSpec = tween(durationMillis = 700 + idx * 80)
@@ -702,7 +685,7 @@ fun EstruturaGastosCard(
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
                                 Box(modifier = Modifier
-                                    .fillMaxWidth(animatedFraction) // Usa a fração animada
+                                    .fillMaxWidth(animatedFraction)
                                     .height(8.dp)
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(gasto.corHex.toComposeColor())
@@ -716,7 +699,6 @@ fun EstruturaGastosCard(
         }
     }
 }
-
 // NOVO: Função para desenhar o ícone sem o quadrado de fundo, idêntico à Imagem 2
 @Composable
 private fun IconeCategoriaSimples(
@@ -758,6 +740,7 @@ private fun IconeCategoriaSimples(
 @Composable
 private fun FaturasProximas(
     cartoes: List<com.example.controlegastos.domain.model.Cartao>,
+    visivel: Boolean, // <--- ADICIONADO AQUI
     onVerTodas: () -> Unit,
     modifier: Modifier = Modifier,
     diasAvisoEmBreve: Int = 10
@@ -770,7 +753,6 @@ private fun FaturasProximas(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                // AJUSTE 1: Reduzido o espaço (bottom = 4.dp) para aproximar bem dos cards
                 .padding(top = 16.dp, bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -793,12 +775,9 @@ private fun FaturasProximas(
             )
         }
 
-        // Removido o Spacer que existia aqui para deixar mais grudado!
-
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             ativos.forEach { cartao ->
                 val (daysUntil, _) = calcularProximoVencimento(cartao.diaVencimento)
-
                 val estaEmBreve = daysUntil <= diasAvisoEmBreve
 
                 val borderColor = if (estaEmBreve) Color(0xFFFFE0B2) else Color(0xFFCFE2D8)
@@ -826,7 +805,6 @@ private fun FaturasProximas(
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Ícones
                         val context = LocalContext.current
                         val marcaKey = cartao.marcaChave.orEmpty().lowercase(Locale("pt","BR"))
                         val resId = remember(marcaKey) {
@@ -834,21 +812,20 @@ private fun FaturasProximas(
                         }
 
                         if (resId != 0) {
-                            // AJUSTE 2: Box com fundo neutro e padding na imagem para não cortar!
                             Box(
                                 modifier = Modifier
-                                    .size(42.dp) // Reduzido levemente
+                                    .size(42.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White), // Dá um fundo elegante para as logos transparentes
+                                    .background(Color.White),
                                 contentAlignment = Alignment.Center
                             ) {
                                 androidx.compose.foundation.Image(
                                     painter = painterResource(id = resId),
                                     contentDescription = cartao.nome,
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit, // Mantém proporção
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(8.dp) // Isso encolhe a logo dentro do círculo, evitando cortes!
+                                        .padding(8.dp)
                                 )
                             }
                         } else {
@@ -882,7 +859,6 @@ private fun FaturasProximas(
 
                         Spacer(modifier = Modifier.width(14.dp))
 
-                        // Textos (Nome + Subtítulo)
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = cartao.nome,
@@ -896,7 +872,7 @@ private fun FaturasProximas(
                             val textoVencimento = buildString {
                                 append("Vence em ${daysUntil} dias")
                                 append(" · ")
-                                append(cartao.limiteCentavos.formatarMoeda(true))
+                                append(cartao.limiteCentavos.formatarMoeda(visivel)) // <--- USANDO `visivel` AQUI
                             }
                             Text(
                                 text = textoVencimento,
@@ -908,7 +884,6 @@ private fun FaturasProximas(
 
                         Spacer(modifier = Modifier.width(12.dp))
 
-                        // Badge da direita
                         val badgeText = if (estaEmBreve) "Em breve" else "${daysUntil}d"
 
                         Box(
@@ -931,7 +906,6 @@ private fun FaturasProximas(
         }
     }
 }
-
 // Helper: calcula (daysUntil, dueDate)
 private fun calcularProximoVencimento(diaVencimento: Int): Pair<Int, LocalDate> {
     val hoje = LocalDate.now()

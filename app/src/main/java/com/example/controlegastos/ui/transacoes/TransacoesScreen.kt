@@ -146,6 +146,7 @@ fun TransacoesScreen(
 
     Box(
         modifier = Modifier.fillMaxSize()
+            .background(CorFundoApp)
     ) {
 
         var despesasFixasExpandidas by remember {
@@ -497,7 +498,7 @@ private fun TopBarTransacoes(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFEEF2EF)) // Cor de fundo no mesmo padrão
+            .background(Color(0xFFECF0ED)) // Cor de fundo no mesmo padrão
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
