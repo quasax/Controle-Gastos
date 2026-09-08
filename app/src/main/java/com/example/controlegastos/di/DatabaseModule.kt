@@ -33,7 +33,8 @@ object DatabaseModule {
                 ControleGastosDatabase.MIGRATION_1_2,
                 ControleGastosDatabase.MIGRATION_2_3,
                 ControleGastosDatabase.MIGRATION_3_4,
-                ControleGastosDatabase.MIGRATION_4_5
+                ControleGastosDatabase.MIGRATION_4_5,
+                ControleGastosDatabase.MIGRATION_5_6
             )
             .build()
     }

@@ -104,6 +104,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -117,6 +118,11 @@ import com.example.controlegastos.domain.model.TipoContaSaldo
 import com.example.controlegastos.ui.components.BarraNavegacaoInferior
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.foundation.layout.imePadding
+
+
 
 // ====== CORES / CONSTANTES DE ESTILO ======
 private val CorEdicao = Color(0xFF2F6F62)
@@ -197,7 +203,9 @@ fun EdicaoScreen(
      modifier = Modifier
       .fillMaxSize()
       .padding(innerPadding)
+      .imePadding()
       .background(CorFundo),
+
      // Adicionado padding inferior de 110.dp para o conteúdo não ficar por baixo da barra
      contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 110.dp),
      verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -662,7 +670,14 @@ private fun NovoCartaoForm(
  }
  var fechamentoText by remember { mutableStateOf("") }
  var vencimentoText by remember { mutableStateOf("") }
- var limiteText by remember { mutableStateOf("") } // Armazena o valor formatado
+
+ // Estado interno que representa apenas os dígitos (centavos inclusos).
+ var limiteDigits by remember { mutableStateOf("") }
+
+ // Texto formatado exibido no campo (ex: "1.234,56")
+ val limiteText = remember(limiteDigits) { formatarTextoMoeda(limiteDigits) }
+
+ val isPixSelected = selecionada?.chave?.equals("pix", ignoreCase = true) == true
 
  Card(
   modifier = Modifier.fillMaxWidth(),
@@ -711,9 +726,7 @@ private fun NovoCartaoForm(
 
      val logoRes = remember(instituicao.chave) {
       val nomeArquivo =
-       if (
-        instituicao.sigla == "CX" ||
-        instituicao.chave.contains("caixa", ignoreCase = true)
+       if (instituicao.sigla == "CX" || instituicao.chave.contains("caixa", ignoreCase = true)
        ) {
         "cef"
        } else {
@@ -751,6 +764,13 @@ private fun NovoCartaoForm(
        )
        .clickable {
         selecionada = instituicao
+        // Quando troca para Pix, limpa campos opcionais para evitar confusão
+        if (instituicao.chave.equals("pix", ignoreCase = true)) {
+         fechamentoText = ""
+         vencimentoText = ""
+         limiteDigits = ""
+
+        }
        },
       contentAlignment = Alignment.Center
      ) {
@@ -783,55 +803,73 @@ private fun NovoCartaoForm(
 
    Spacer(Modifier.height(12.dp))
 
-   Row(
-    horizontalArrangement = Arrangement.spacedBy(12.dp)
-   ) {
-    CampoCartaoCinza(
-     titulo = "Fecha no dia",
-     valor = fechamentoText,
-     placeholder = "Ex: 19",
-     onValueChange = {
-      fechamentoText = it.filter(Char::isDigit)
-     },
-     modifier = Modifier.weight(1f)
+   // Se NÃO for Pix, mostra campos de fechamento/vencimento e limite
+   if (!isPixSelected) {
+    Row(
+     horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+     CampoCartaoCinza(
+      titulo = "Fecha no dia",
+      valor = fechamentoText,
+      placeholder = "Ex: 19",
+      onValueChange = {
+       fechamentoText = it.filter(Char::isDigit)
+      },
+      modifier = Modifier.weight(1f)
+     )
+
+     CampoCartaoCinza(
+      titulo = "Vence no dia",
+      valor = vencimentoText,
+      placeholder = "Ex: 26",
+      onValueChange = {
+       vencimentoText = it.filter(Char::isDigit)
+      },
+      modifier = Modifier.weight(1f)
+     )
+    }
+
+    Spacer(Modifier.height(12.dp))
+
+    LimiteCartaoField(
+     titulo = "Limite do cartão",
+     digits = limiteDigits,
+     onDigitsChange = { novoDigits -> limiteDigits = novoDigits },
+     modifier = Modifier.fillMaxWidth(),
+     prefixo = "R$ ",
+     placeholder = "0,00"
     )
 
-    CampoCartaoCinza(
-     titulo = "Vence no dia",
-     valor = vencimentoText,
-     placeholder = "Ex: 26",
-     onValueChange = {
-      vencimentoText = it.filter(Char::isDigit)
-     },
-     modifier = Modifier.weight(1f)
+    Spacer(Modifier.height(12.dp))
+   } else {
+    // Caso Pix selecionado: pequena explicação (opcional)
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+     text = "Pix não possui ciclo de fechamento nem limite.",
+     style = MaterialTheme.typography.bodySmall,
+     color = CorTextoPlaceholder
     )
+    Spacer(modifier = Modifier.height(12.dp))
    }
-
-   Spacer(Modifier.height(12.dp))
-
-   CampoCartaoCinza(
-    titulo = "Limite do cartão",
-    valor = limiteText,
-    placeholder = "0,00",
-    onValueChange = { novoTexto ->
-     limiteText = formatarTextoMoeda(novoTexto)
-    },
-    modifier = Modifier.fillMaxWidth(),
-    prefixo = "R$ "
-   )
-
-   Spacer(Modifier.height(12.dp))
 
    Button(
     onClick = {
-     val fechamento = fechamentoText.toIntOrNull() ?: 1
-     val vencimento = vencimentoText.toIntOrNull() ?: 1
+     val fechamento: Int
+     val vencimento: Int
+     val limiteCentavos: Long
 
-     // Remove vírgula/pontos e preserva apenas os centavos.
-     val limiteCentavos = limiteText
-      .filter { it.isDigit() }
-      .toLongOrNull()
-      ?: 0L
+     if (isPixSelected) {
+      // valores padrão para Pix (neutros)
+      fechamento = 1
+      vencimento = 1
+      limiteCentavos = 0L
+     } else {
+      fechamento = fechamentoText.toIntOrNull() ?: 1
+      vencimento = vencimentoText.toIntOrNull() ?: 1
+
+      // Converte a string de dígitos (centavos) para Long
+      limiteCentavos = limiteDigits.toLongOrNull() ?: 0L
+     }
 
      selecionada?.let { instituicao ->
       onSave(
@@ -917,6 +955,118 @@ private fun CampoCartaoCinza(
  }
 }
 
+@Composable
+private fun LimiteCartaoField(
+ titulo: String,
+ digits: String, // somente dígitos (centavos)
+ onDigitsChange: (String) -> Unit,
+ modifier: Modifier = Modifier,
+ placeholder: String = "0,00",
+ prefixo: String? = null
+) {
+ // Estado interno do TextFieldValue para controlar seleção/composição
+ var textFieldValue by remember {
+  mutableStateOf(
+   TextFieldValue(
+    text = if (digits.isEmpty()) "" else formatarTextoMoeda(digits),
+    selection = TextRange(if (digits.isEmpty()) 0 else formatarTextoMoeda(digits).length)
+   )
+  )
+ }
+
+ // Quando digits externo mudar (por exemplo ao limpar), atualiza o TextFieldValue exibido
+ LaunchedEffect(digits) {
+  val formatted = if (digits.isEmpty()) "" else formatarTextoMoeda(digits)
+  textFieldValue = TextFieldValue(formatted, TextRange(formatted.length))
+ }
+
+ Column(modifier = modifier) {
+  Text(
+   text = titulo,
+   style = MaterialTheme.typography.labelSmall,
+   color = CorTextoPlaceholder
+  )
+  Spacer(Modifier.height(4.dp))
+
+  androidx.compose.foundation.text.BasicTextField(
+   value = textFieldValue,
+   onValueChange = { newTfv ->
+    // extrai apenas dígitos do texto recebido do IME
+    val newDigits = newTfv.text.filter { it.isDigit() }
+
+    // Se não mudou, apenas atualiza seleção/valor formatado e retorna
+    if (newDigits == digits) {
+     val formatted = if (newDigits.isEmpty()) "" else formatarTextoMoeda(newDigits)
+     textFieldValue = TextFieldValue(formatted, TextRange(formatted.length))
+     return@BasicTextField
+    }
+
+    // Detecta se foi adição (colagem/entrada append) ou remoção
+    val updatedDigits = when {
+     newDigits.startsWith(digits) -> {
+      // adição no final: append apenas o sufixo
+      digits + newDigits.substring(digits.length)
+     }
+     digits.startsWith(newDigits) -> {
+      // remoção (backspace): adota newDigits
+      newDigits
+     }
+     else -> {
+      // edição no meio ou colagem: adota newDigits por segurança
+      newDigits
+     }
+    }
+
+    // Atualiza estado externo
+    onDigitsChange(updatedDigits)
+
+    // Atualiza o TextFieldValue com o texto formatado e posiciona cursor no fim
+    val formatted = if (updatedDigits.isEmpty()) "" else formatarTextoMoeda(updatedDigits)
+    textFieldValue = TextFieldValue(formatted, TextRange(formatted.length))
+   },
+   singleLine = true,
+   keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+   textStyle = androidx.compose.ui.text.TextStyle(
+    color = CorTextoPlaceholder,
+    fontSize = 14.sp
+   ),
+   modifier = Modifier
+    .fillMaxWidth()
+    .height(44.dp),
+   decorationBox = { innerTextField ->
+    Row(
+     verticalAlignment = Alignment.CenterVertically,
+     modifier = Modifier
+      .fillMaxSize()
+      .border(1.dp, CorBordaCampo, RoundedCornerShape(10.dp))
+      .padding(horizontal = 12.dp)
+    ) {
+     if (prefixo != null) {
+      Text(
+       text = prefixo,
+       color = CorTextoPlaceholder,
+       fontSize = 14.sp
+      )
+     }
+
+     Box(
+      contentAlignment = Alignment.CenterStart,
+      modifier = Modifier.fillMaxWidth()
+     ) {
+      if (textFieldValue.text.isEmpty()) {
+       Text(
+        text = placeholder,
+        color = CorTextoPlaceholder,
+        fontSize = 14.sp
+       )
+      }
+      innerTextField()
+     }
+    }
+   }
+  )
+ }
+}
 @Composable
 fun TopBarEdicao(
  onVoltar: () -> Unit,
@@ -1824,6 +1974,8 @@ private fun CartaoDetalhado(
   (usadoCentavos.toDouble() / total.toDouble()).toFloat().coerceIn(0f, 1f)
  }
 
+ val isPix = cartao.marcaChave.equals("pix", ignoreCase = true)
+
  Card(
   modifier = Modifier.fillMaxWidth(),
   shape = RoundedCornerShape(12.dp),
@@ -1831,6 +1983,7 @@ private fun CartaoDetalhado(
   elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
  ) {
   Column(modifier = Modifier.padding(14.dp)) {
+   // Cabeçalho: logo, nome e switch
    Row(verticalAlignment = Alignment.CenterVertically) {
     val context = LocalContext.current
     val logoRes = remember(cartao.marcaChave) {
@@ -1898,11 +2051,14 @@ private fun CartaoDetalhado(
 
      Spacer(Modifier.height(4.dp))
 
-     Text(
-      text = "Fecha dia ${cartao.diaFechamento} • Vence dia ${cartao.diaVencimento}",
-      color = corSubtitulo,
-      style = MaterialTheme.typography.bodySmall
-     )
+     // Fecha / Vence: já escondido para Pix
+     if (!isPix) {
+      Text(
+       text = "Fecha dia ${cartao.diaFechamento} • Vence dia ${cartao.diaVencimento}",
+       color = corSubtitulo,
+       style = MaterialTheme.typography.bodySmall
+      )
+     }
     }
 
     Spacer(Modifier.width(8.dp))
@@ -1923,178 +2079,204 @@ private fun CartaoDetalhado(
 
    Spacer(Modifier.height(12.dp))
 
-   Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-    Column(modifier = Modifier.weight(1f)) {
-     Text(text = "DISPONÍVEL", color = corLabelCinza, style = MaterialTheme.typography.labelSmall)
+   // === Para cartões normais: mostra resumo DISPONÍVEL / USADO / barra / limite / divider / edição ===
+   if (!isPix) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+     Column(modifier = Modifier.weight(1f)) {
+      Text(text = "DISPONÍVEL", color = corLabelCinza, style = MaterialTheme.typography.labelSmall)
+      Text(
+       text = disponivelCentavos.formatarMoedaPtBr(),
+       color = CorEdicao,
+       style = MaterialTheme.typography.titleMedium,
+       fontWeight = FontWeight.Bold
+      )
+     }
+
+     Column(horizontalAlignment = Alignment.End) {
+      Text(text = "USADO", color = corLabelCinza, style = MaterialTheme.typography.labelSmall)
+      Text(
+       text = usadoCentavos.formatarMoedaPtBr(),
+       color = MaterialTheme.colorScheme.onSurface,
+       style = MaterialTheme.typography.bodyMedium
+      )
+     }
+    }
+
+    Spacer(Modifier.height(10.dp))
+
+    LinearProgressIndicator(
+     progress = progresso,
+     modifier = Modifier
+      .fillMaxWidth()
+      .height(8.dp)
+      .clip(RoundedCornerShape(6.dp)),
+     trackColor = Color(0xFFECEFF0),
+     color = CorEdicao
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    Text(
+     text = "Limite ${limiteCentavos.formatarMoedaPtBr()}",
+     color = corLabelCinza,
+     style = MaterialTheme.typography.bodySmall
+    )
+
+    Spacer(Modifier.height(10.dp))
+
+    Divider()
+
+    Spacer(Modifier.height(6.dp))
+
+    // Editar ciclo de cobrança (já só aparece se não for Pix)
+    var editarExpandido by remember { mutableStateOf(false) }
+
+    Row(
+     modifier = Modifier
+      .fillMaxWidth()
+      .clickable { editarExpandido = !editarExpandido }
+      .padding(vertical = 8.dp),
+     verticalAlignment = Alignment.CenterVertically
+    ) {
+     Text(text = "✏️", fontSize = 16.sp)
+     Spacer(Modifier.width(8.dp))
      Text(
-      text = disponivelCentavos.formatarMoedaPtBr(),
+      text = "Editar ciclo de cobrança",
       color = CorEdicao,
-      style = MaterialTheme.typography.titleMedium,
-      fontWeight = FontWeight.Bold
+      style = MaterialTheme.typography.bodyMedium
+     )
+
+     Spacer(modifier = Modifier.weight(1f))
+
+     Icon(
+      imageVector = if (editarExpandido) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+      contentDescription = if (editarExpandido) "Recolher" else "Expandir",
+      tint = corLabelCinza
      )
     }
 
-    Column(horizontalAlignment = Alignment.End) {
-     Text(text = "USADO", color = corLabelCinza, style = MaterialTheme.typography.labelSmall)
-     Text(text = usadoCentavos.formatarMoedaPtBr(), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
-    }
-   }
+    if (editarExpandido) {
+     Spacer(Modifier.height(8.dp))
 
-   Spacer(Modifier.height(10.dp))
-
-   LinearProgressIndicator(
-    progress = { progresso },
-    modifier = Modifier
-     .fillMaxWidth()
-     .height(8.dp)
-     .clip(RoundedCornerShape(6.dp)),
-    trackColor = Color(0xFFECEFF0),
-    color = CorEdicao
-   )
-
-   Spacer(Modifier.height(8.dp))
-
-   Text(
-    text = "Limite ${limiteCentavos.formatarMoedaPtBr()}",
-    color = corLabelCinza,
-    style = MaterialTheme.typography.bodySmall
-   )
-
-   Spacer(Modifier.height(10.dp))
-
-   Divider()
-
-   Spacer(Modifier.height(6.dp))
-
-   var editarExpandido by remember { mutableStateOf(false) }
-
-   Row(
-    modifier = Modifier
-     .fillMaxWidth()
-     .clickable { editarExpandido = !editarExpandido }
-     .padding(vertical = 8.dp),
-    verticalAlignment = Alignment.CenterVertically
-   ) {
-    Text(
-     text = "✏️",
-     fontSize = 16.sp
-    )
-    Spacer(Modifier.width(8.dp))
-    Text(
-     text = "Editar ciclo de cobrança",
-     color = CorEdicao,
-     style = MaterialTheme.typography.bodyMedium
-    )
-
-    Spacer(modifier = Modifier.weight(1f))
-
-    Icon(
-     imageVector = if (editarExpandido) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-     contentDescription = if (editarExpandido) "Recolher" else "Expandir",
-     tint = corLabelCinza
-    )
-   }
-
-   if (editarExpandido) {
-    Spacer(Modifier.height(8.dp))
-
-    Column(
-     modifier = Modifier
-      .fillMaxWidth()
-      .padding(bottom = 4.dp)
-    ) {
      var fechamentoText by remember { mutableStateOf(cartao.diaFechamento.toString()) }
      var vencimentoText by remember { mutableStateOf(cartao.diaVencimento.toString()) }
 
-     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-      Column(modifier = Modifier.weight(1f)) {
-       Text(
-        text = "Fecha no dia",
-        color = corLabelCinza,
-        style = MaterialTheme.typography.labelMedium
-       )
-       Spacer(Modifier.height(6.dp))
-       androidx.compose.foundation.text.BasicTextField(
-        value = fechamentoText,
-        onValueChange = { fechamentoText = it.filter { ch -> ch.isDigit() } },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        textStyle = androidx.compose.ui.text.TextStyle(
-         color = CorTextoEdicao,
-         fontWeight = FontWeight.Bold,
-         fontSize = 16.sp,
-         textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        ),
-        modifier = Modifier
-         .fillMaxWidth()
-         .height(38.dp)
-         .border(1.dp, Color(0xFFE1E7E3), RoundedCornerShape(8.dp))
-         .background(Color.White, RoundedCornerShape(8.dp)),
-        decorationBox = { innerTextField ->
-         Box(
-          contentAlignment = Alignment.Center,
-          modifier = Modifier.fillMaxSize()
-         ) {
-          innerTextField()
-         }
-        }
-       )
-      }
-
-      Column(modifier = Modifier.weight(1f)) {
-       Text(
-        text = "Vence no dia",
-        color = corLabelCinza,
-        style = MaterialTheme.typography.labelMedium
-       )
-       Spacer(Modifier.height(6.dp))
-       androidx.compose.foundation.text.BasicTextField(
-        value = vencimentoText,
-        onValueChange = { vencimentoText = it.filter { ch -> ch.isDigit() } },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        textStyle = androidx.compose.ui.text.TextStyle(
-         color = CorTextoEdicao,
-         fontWeight = FontWeight.Bold,
-         fontSize = 16.sp,
-         textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        ),
-        modifier = Modifier
-         .fillMaxWidth()
-         .height(38.dp)
-         .border(1.dp, Color(0xFFE1E7E3), RoundedCornerShape(8.dp))
-         .background(Color.White, RoundedCornerShape(8.dp)),
-        decorationBox = { innerTextField ->
-         Box(
-          contentAlignment = Alignment.Center,
-          modifier = Modifier.fillMaxSize()
-         ) {
-          innerTextField()
-         }
-        }
-       )
-      }
-     }
-
-     Spacer(Modifier.height(16.dp))
-
-     Button(
-      onClick = {
-       val f = fechamentoText.toIntOrNull() ?: cartao.diaFechamento
-       val v = vencimentoText.toIntOrNull() ?: cartao.diaVencimento
-       onSalvarDatas(f, v)
-       editarExpandido = false
-      },
+     Column(
       modifier = Modifier
        .fillMaxWidth()
-       .height(42.dp),
-      shape = RoundedCornerShape(8.dp),
-      colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-       containerColor = CorEdicao
-      )
+       .padding(bottom = 4.dp)
      ) {
-      Text("Salvar alterações", fontWeight = FontWeight.SemiBold)
+      Row(
+       modifier = Modifier.fillMaxWidth(),
+       horizontalArrangement = Arrangement.spacedBy(12.dp)
+      ) {
+       Column(modifier = Modifier.weight(1f)) {
+        Text(
+         text = "Fecha no dia",
+         color = corLabelCinza,
+         style = MaterialTheme.typography.labelMedium
+        )
+        Spacer(Modifier.height(6.dp))
+        androidx.compose.foundation.text.BasicTextField(
+         value = fechamentoText,
+         onValueChange = { fechamentoText = it.filter { ch -> ch.isDigit() } },
+         keyboardOptions = KeyboardOptions(
+          keyboardType = KeyboardType.Number
+         ),
+         textStyle = androidx.compose.ui.text.TextStyle(
+          color = CorTextoEdicao,
+          fontWeight = FontWeight.Bold,
+          fontSize = 16.sp,
+          textAlign = androidx.compose.ui.text.style.TextAlign.Center
+         ),
+         modifier = Modifier
+          .fillMaxWidth()
+          .height(38.dp)
+          .border(1.dp, Color(0xFFE1E7E3), RoundedCornerShape(8.dp))
+          .background(Color.White, RoundedCornerShape(8.dp)),
+         decorationBox = { innerTextField ->
+          Box(
+           contentAlignment = Alignment.Center,
+           modifier = Modifier.fillMaxSize()
+          ) {
+           innerTextField()
+          }
+         }
+        )
+       }
+
+       Column(modifier = Modifier.weight(1f)) {
+        Text(
+         text = "Vence no dia",
+         color = corLabelCinza,
+         style = MaterialTheme.typography.labelMedium
+        )
+        Spacer(Modifier.height(6.dp))
+        androidx.compose.foundation.text.BasicTextField(
+         value = vencimentoText,
+         onValueChange = { vencimentoText = it.filter { ch -> ch.isDigit() } },
+         keyboardOptions = KeyboardOptions(
+          keyboardType = KeyboardType.Number
+         ),
+         textStyle = androidx.compose.ui.text.TextStyle(
+          color = CorTextoEdicao,
+          fontWeight = FontWeight.Bold,
+          fontSize = 16.sp,
+          textAlign = androidx.compose.ui.text.style.TextAlign.Center
+         ),
+         modifier = Modifier
+          .fillMaxWidth()
+          .height(38.dp)
+          .border(1.dp, Color(0xFFE1E7E3), RoundedCornerShape(8.dp))
+          .background(Color.White, RoundedCornerShape(8.dp)),
+         decorationBox = { innerTextField ->
+          Box(
+           contentAlignment = Alignment.Center,
+           modifier = Modifier.fillMaxSize()
+          ) {
+           innerTextField()
+          }
+         }
+        )
+       }
+      }
+
+      Spacer(Modifier.height(16.dp))
+
+      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+       // Botão cancelar
+       TextButton(onClick = {
+        fechamentoText = cartao.diaFechamento.toString()
+        vencimentoText = cartao.diaVencimento.toString()
+        editarExpandido = false
+       }) {
+        Text("Cancelar")
+       }
+
+       Spacer(Modifier.width(8.dp))
+
+       // Botão salvar
+       Button(
+        onClick = {
+         val f = fechamentoText.toIntOrNull() ?: cartao.diaFechamento
+         val v = vencimentoText.toIntOrNull() ?: cartao.diaVencimento
+         onSalvarDatas(f, v)
+         editarExpandido = false
+        },
+        modifier = Modifier
+         .height(42.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+         containerColor = CorEdicao
+        )
+       ) {
+        Text("Salvar alterações", fontWeight = FontWeight.SemiBold)
+       }
+      }
      }
     }
-   }
+   } // fim if !isPix
+   // === Para Pix, nada dessa área é renderizado ===
   }
  }
 }
@@ -2459,6 +2641,9 @@ private fun FormularioContaSaldo(
  onSalvar: () -> Unit
 ) {
  var apelido by remember { mutableStateOf("") }
+ var saldoDigits by remember {
+  mutableStateOf(uiState.saldoInicialTexto.filter { it.isDigit() })
+ }
 
  Card(
   modifier = Modifier.fillMaxWidth(),
@@ -2668,18 +2853,17 @@ private fun FormularioContaSaldo(
     modifier = Modifier.fillMaxWidth()
    )
 
-   CampoContaSaldo(
-    valor = uiState.saldoInicialTexto
-     .formatarCentavosSemPrefixo(),
-    onValueChange = { novo ->
-     onSaldoAlterado(
-      novo.filter(Char::isDigit)
-     )
+   LimiteCartaoField(
+    titulo = "Saldo inicial (R$)",
+    digits = saldoDigits,
+    onDigitsChange = { novoDigits ->
+     saldoDigits = novoDigits
+     // informa o ViewModel da mudança (espera dígitos)
+     onSaldoAlterado(novoDigits)
     },
-    placeholder = "Saldo inicial (R$)",
+    modifier = Modifier.fillMaxWidth(),
     prefixo = "R$ ",
-    keyboardType = KeyboardType.Number,
-    modifier = Modifier.fillMaxWidth()
+    placeholder = "Saldo inicial (R$)"
    )
 
    Button(
@@ -2828,20 +3012,22 @@ private fun AbasEdicaoItem(
  ) {
   Row(
    verticalAlignment = Alignment.CenterVertically,
-   modifier = Modifier.padding(horizontal = 12.dp)
+   modifier = Modifier.padding(horizontal = 8.dp) // padding reduzido
   ) {
    Icon(
     painter = painterResource(id = icone),
     contentDescription = texto,
     tint = Color.Unspecified,
-    modifier = Modifier.size(16.dp)
+    modifier = Modifier.size(14.dp) // ícone um pouco menor
    )
-   Spacer(modifier = Modifier.width(8.dp))
+   Spacer(modifier = Modifier.width(6.dp))
    Text(
     text = texto,
     color = contentColor,
-    style = MaterialTheme.typography.bodyMedium,
-    fontWeight = if (selecionada) FontWeight.SemiBold else FontWeight.Medium
+    style = MaterialTheme.typography.bodySmall, // texto menor
+    fontWeight = if (selecionada) FontWeight.SemiBold else FontWeight.Medium,
+    maxLines = 1,
+    overflow = TextOverflow.Ellipsis
    )
   }
  }

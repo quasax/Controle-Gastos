@@ -85,9 +85,59 @@ abstract class ControleGastosDatabase : RoomDatabase() {
 
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE tb_despesas ADD COLUMN conta_saldo_id INTEGER DEFAULT NULL")
-                database.execSQL("ALTER TABLE tb_despesas ADD COLUMN tipo_lancamento TEXT NOT NULL DEFAULT 'UNICA'")
-                database.execSQL("ALTER TABLE tb_despesas ADD COLUMN origem_pagamento TEXT DEFAULT NULL")
+                // 1) Cria nova tabela com o esquema esperado pelo Room (sem DEFAULT clauses)
+                database.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS tb_despesas_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                valor INTEGER NOT NULL,
+                descricao TEXT NOT NULL,
+                data_compra INTEGER NOT NULL,
+                data_vencimento INTEGER NOT NULL,
+                data_pagamento INTEGER,
+                status_pago INTEGER NOT NULL,
+                categoria_id INTEGER NOT NULL,
+                grupo_parcelamento_id INTEGER,
+                cartao_id INTEGER,
+                conta_saldo_id INTEGER,
+                tipo_lancamento TEXT NOT NULL,
+                origem_pagamento TEXT,
+                FOREIGN KEY(categoria_id) REFERENCES tb_categorias(id) ON DELETE RESTRICT ON UPDATE NO ACTION,
+                FOREIGN KEY(grupo_parcelamento_id) REFERENCES tb_grupo_parcelamento(id) ON DELETE CASCADE ON UPDATE NO ACTION,
+                FOREIGN KEY(cartao_id) REFERENCES tb_cartoes(id) ON DELETE SET NULL ON UPDATE NO ACTION,
+                FOREIGN KEY(conta_saldo_id) REFERENCES tb_contas_saldo(id) ON DELETE SET NULL ON UPDATE NO ACTION
+            )
+            """.trimIndent()
+                )
+
+                // 2) Copia os dados existentes para a nova tabela.
+                // Para as colunas novas, definimos valores neutros (NULL para conta_saldo_id e origem_pagamento; 'UNICA' para tipo_lancamento)
+                database.execSQL(
+                    """
+            INSERT INTO tb_despesas_new (
+                id, valor, descricao, data_compra, data_vencimento, data_pagamento,
+                status_pago, categoria_id, grupo_parcelamento_id, cartao_id,
+                conta_saldo_id, tipo_lancamento, origem_pagamento
+            )
+            SELECT
+                id, valor, descricao, data_compra, data_vencimento, data_pagamento,
+                status_pago, categoria_id, grupo_parcelamento_id, cartao_id,
+                NULL as conta_saldo_id, 'UNICA' as tipo_lancamento, NULL as origem_pagamento
+            FROM tb_despesas
+            """.trimIndent()
+                )
+
+                // 3) Remove tabela antiga e renomeia a nova para o nome original
+                database.execSQL("DROP TABLE IF EXISTS tb_despesas")
+                database.execSQL("ALTER TABLE tb_despesas_new RENAME TO tb_despesas")
+
+                // 4) Recria índices esperados
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_categoria_id ON tb_despesas(categoria_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_grupo_parcelamento_id ON tb_despesas(grupo_parcelamento_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_data_vencimento ON tb_despesas(data_vencimento)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_data_compra ON tb_despesas(data_compra)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_categoria_id_data_compra ON tb_despesas(categoria_id, data_compra)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_cartao_id ON tb_despesas(cartao_id)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_conta_saldo_id ON tb_despesas(conta_saldo_id)")
             }
         }

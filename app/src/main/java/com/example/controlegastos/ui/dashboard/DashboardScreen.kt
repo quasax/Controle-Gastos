@@ -132,7 +132,8 @@ fun DashboardScreen(
     onVerPendencias: () -> Unit,
     onAbrirConfiguracoes: () -> Unit,
     onAbrirCartoes: () -> Unit,
-    onNavegarGastos: () -> Unit = {}, // Adicionado para suportar a navegação padrão de Gastos
+    onNavegarEdicao: () -> Unit = {},       // novo callback (default para retrocompatibilidade)
+    onNavegarGastos: () -> Unit = {},       // mantive como antes
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -213,10 +214,10 @@ fun DashboardScreen(
             onItemSelected = { index ->
                 selectedIndex = index
                 when (index) {
-                    0 -> { /* Já está no Início */ }
+                    0 -> { /* Início - já na Dashboard */ }
                     1 -> onVerTodasTransacoes()
-                    2 -> onNavegarGastos() // Aba de Gastos (Índice 2)
-                    3 -> onAbrirConfiguracoes() // Aba de Edição/Configurações (Índice 3)
+                    2 -> onVerPendencias()   // ou onNavegarGastos se preferir
+                    3 -> onNavegarEdicao()    // chama explicitamente o novo callback
                 }
             },
             onAdicionarDespesa = onAdicionarDespesa
@@ -449,10 +450,11 @@ private fun ConteudoDashboard(
     uiState: DashboardUiState
 ) {
     val tetoSoma: Long = uiState.gastosPorCategoria.mapNotNull { it.tetoMensal }.sum()
-    val totalBudget: Long = if (tetoSoma > 0L) {
-        tetoSoma
-    } else {
-        (uiState.resumoMensal.totalGasto * 2L).coerceAtLeast(50000L)
+
+    val totalBudget: Long = when {
+        tetoSoma > 0L -> tetoSoma
+        uiState.resumoMensal.totalGasto > 0L -> uiState.resumoMensal.totalGasto * 2L
+        else -> 0L
     }
 
     Column(

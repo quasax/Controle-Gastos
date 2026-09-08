@@ -44,5 +44,6 @@ val instituicoesPredefinidas = listOf(
     InstituicaoPredefinida("PicPay", "picpay", "P", Color(0xFF21C25E), 27, 5),
     InstituicaoPredefinida("Mercado Pago", "mercado_pago", "MP", Color(0xFF009EE3), 29, 4),
     InstituicaoPredefinida("Caixa Tem", "caixa_tem", "CX", Color(0xFF005CA9), 29, 5),
-    InstituicaoPredefinida("Santander", "santander", "S", Color(0xFFEC0000), 29, 5)
+    InstituicaoPredefinida("Santander", "santander", "S", Color(0xFFEC0000), 29, 5),
+    InstituicaoPredefinida("Pix", "pix", "PX", Color(0xFF00C853), 1, 1)
 )

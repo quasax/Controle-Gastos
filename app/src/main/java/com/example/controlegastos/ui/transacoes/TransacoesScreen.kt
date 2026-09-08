@@ -88,7 +88,9 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
@@ -101,6 +103,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.window.Dialog
 import com.example.controlegastos.ui.components.BarraNavegacaoInferior
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.rotate
 
 
 private val CorFundoApp = Color(0xFFECF0ED)
@@ -1066,8 +1070,17 @@ private fun CardFaturaCompleta(
     }
     val disponivel = (limite - usado).coerceAtLeast(0L)
 
+    // Aumenta a altura mínima do card quando a fatura NÃO está paga, para evitar compressão.
+    val cardModifier = if (!fatura.paga) {
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 180.dp)
+    } else {
+        Modifier.fillMaxWidth()
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = cardModifier,
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFEAEFF0)),
@@ -1082,13 +1095,7 @@ private fun CardFaturaCompleta(
                 modifier = Modifier.padding(basePadding)
             ) {
                 if (fatura.paga) {
-                    /*
-                     * BLOCO EXCLUSIVO DA FATURA FECHADA/PAGA.
-                     *
-                     * Estrutura:
-                     * - Esquerda: ícone, nome, badge, mês e vencimento.
-                     * - Direita: valor no topo e botão abaixo dele.
-                     */
+                    // --- BLOCO DA FATURA PAGA (SEM MUDANÇAS RELEVANTES) ---
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Top
@@ -1202,8 +1209,6 @@ private fun CardFaturaCompleta(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Área direita exclusiva da fatura paga:
-                        // valor no topo e botão logo abaixo.
                         Column(
                             horizontalAlignment = Alignment.End,
                             verticalArrangement = Arrangement.Top
@@ -1228,25 +1233,22 @@ private fun CardFaturaCompleta(
                                 border = BorderStroke(
                                     width = 1.dp,
                                     color = Color(0xFFE5E7EB)
-                                )
+                                ),
+                                modifier = Modifier.defaultMinSize(minWidth = 100.dp)
                             ) {
                                 Text(
                                     text = "Ver fatura",
                                     color = Color(0xFF1F2937),
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
                                 )
                             }
                         }
                     }
 
-                    // Mantém um espaço pequeno abaixo apenas no card fechado.
                     Spacer(modifier = Modifier.height(2.dp))
                 } else {
-                    /*
-                     * BLOCO DA FATURA ABERTA.
-                     * Mantido exatamente com a estrutura e os tamanhos
-                     * originais do seu código.
-                     */
+                    // --- BLOCO DA FATURA ABERTA (onde aplicamos a mudança solicitada) ---
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Top
@@ -1320,7 +1322,7 @@ private fun CardFaturaCompleta(
                                 }
                             }
 
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1409,34 +1411,29 @@ private fun CardFaturaCompleta(
                 }
             }
 
-            // Este divisor continua sendo exclusivo da fatura aberta.
+            // DIVIDER (mantido)
             if (!fatura.paga) {
                 HorizontalDivider(
                     color = Color(0xFFF3F4F6),
                     thickness = 1.dp
                 )
-            }
 
-            // Esta área também permanece exclusiva da fatura aberta.
-            if (!fatura.paga) {
-                Row(
+                // NOVA ESTRUTURA: texto de dias ACIMA dos botões, e abaixo uma linha com os botões alinhados à direita
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(
-                            horizontal = 16.dp,
-                            vertical = 12.dp
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     Text(
                         text = diasParaVencerTexto(fatura),
                         color = Color(0xFF9CA3AF),
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 12.dp)
                     )
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
                     ) {
                         androidx.compose.material3.OutlinedButton(
                             onClick = onVerFatura,
@@ -1448,14 +1445,20 @@ private fun CardFaturaCompleta(
                             border = BorderStroke(
                                 1.dp,
                                 Color(0xFFE5E7EB)
-                            )
+                            ),
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 110.dp)
                         ) {
                             Text(
                                 text = "Ver fatura",
                                 color = Color(0xFF1F2937),
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
+
+                        Spacer(modifier = Modifier.width(8.dp))
 
                         androidx.compose.material3.Button(
                             onClick = onPagar,
@@ -1467,7 +1470,10 @@ private fun CardFaturaCompleta(
                             colors = androidx.compose.material3.ButtonDefaults
                                 .buttonColors(
                                     containerColor = CorPrincipal
-                                )
+                                ),
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 110.dp)
+                                .heightIn(min = 40.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.CheckCircle,
@@ -1481,7 +1487,9 @@ private fun CardFaturaCompleta(
                             Text(
                                 text = "Pagar fatura",
                                 color = Color.White,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

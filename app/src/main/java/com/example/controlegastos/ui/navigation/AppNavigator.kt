@@ -69,6 +69,10 @@ private class DashboardVoyagerScreen : Screen {
             onAbrirCartoes = {
                 navigator?.irParaAba(EdicaoVoyagerScreen())
             },
+            onNavegarEdicao = {
+                // Navegação consistente para a aba Edição
+                navigator?.irParaAba(EdicaoVoyagerScreen())
+            },
             onNavegarGastos = {
                 navigator?.irParaAba(GastosVoyagerScreen())
             }
