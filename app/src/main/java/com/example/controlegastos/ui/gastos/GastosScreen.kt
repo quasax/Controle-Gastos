@@ -106,6 +106,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
+import com.example.controlegastos.ui.components.BarraNavegacaoInferior
 
 private val CorGastos = Color(0xFF5F8D84)
 private val CorGastosClara = Color(0xFF9DBCB5)
@@ -115,10 +116,18 @@ private val CorTextoGastos = Color(0xFF123C3A)
 fun GastosScreen(
     onVoltar: () -> Unit,
     onAbrirEdicao: () -> Unit,
+    onNavegarInicio: () -> Unit = {},
+    onNavegarTransacoes: () -> Unit = {},
+    onNavegarGastos: () -> Unit = {},
+    onNavegarEdicao: () -> Unit = {},
+    onAdicionarDespesa: () -> Unit = {},
     viewModel: GastosViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var despesaParaExcluir by remember { mutableStateOf<DespesaDetalhada?>(null) }
+
+    // Gastos está na posição 2 da barra de navegação inferior
+    var selectedIndex by remember { mutableStateOf(2) }
 
     if (despesaParaExcluir != null) {
         val despesa = despesaParaExcluir!!
@@ -134,18 +143,17 @@ fun GastosScreen(
                         .padding(top = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Ícone circular de alerta/exclusão
                     Box(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFFDF2F2)), // Vermelho bem suave
+                            .background(Color(0xFFFDF2F2)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = null,
-                            tint = Color(0xFFD84315), // Cor de alerta/destrutiva do seu app
+                            tint = Color(0xFFD84315),
                             modifier = Modifier.size(26.dp)
                         )
                     }
@@ -156,7 +164,7 @@ fun GastosScreen(
                         text = "Excluir despesa?",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF143045), // Azul escuro/grafite padrão
+                        color = Color(0xFF143045),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -165,20 +173,18 @@ fun GastosScreen(
                 Text(
                     text = "A despesa \"${despesa.descricao}\" será removida definitivamente. Esta ação não pode ser desfeita.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF8A929B), // Cinza padronizado
+                    color = Color(0xFF8A929B),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
                 )
             },
             confirmButton = {
-                // Usamos uma Row para colocar os dois botões lado a lado com largura igual
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Botão Cancelar (Outlined)
                     OutlinedButton(
                         onClick = { despesaParaExcluir = null },
                         shape = RoundedCornerShape(12.dp),
@@ -194,11 +200,10 @@ fun GastosScreen(
                         Text(
                             text = "Cancelar",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold // ou SemiBold
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
 
-                    // Botão Excluir (Preenchido com cor de alerta)
                     Button(
                         onClick = {
                             viewModel.excluirDespesa(despesa.id)
@@ -206,7 +211,7 @@ fun GastosScreen(
                         },
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFD84315), // Tom avermelhado/destrutivo
+                            containerColor = Color(0xFFD84315),
                             contentColor = Color.White
                         ),
                         modifier = Modifier
@@ -221,487 +226,469 @@ fun GastosScreen(
                     }
                 }
             },
-            // Deixamos o dismissButton vazio pois colocamos ambos os botões organizados dentro do confirmButton
             dismissButton = {}
         )
     }
 
-    // Trocado de BottomSheetScaffold para Scaffold comum
-    androidx.compose.material3.Scaffold(
-        topBar = {
-            TopBarGastos(
-                onVoltar = onVoltar,
-                onAbrirEdicao = onAbrirEdicao
-            )
-        }
-    ) { innerPadding ->
-        if (uiState.carregando) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    color = CorGastos
+    // Envolvendo com Box para fixar a barra de navegação inferior na tela toda
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFEEF2EF))) {
+        androidx.compose.material3.Scaffold(
+            containerColor = Color(0xFFEEF2EF),
+            topBar = {
+                TopBarGastos(
+                    onVoltar = onVoltar,
+                    onAbrirEdicao = onAbrirEdicao
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFFEEF2EF))
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = 16.dp,
-                    bottom = 32.dp // Ajustado o padding inferior já que não há mais o painel
-                ),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .shadow(
-                                    elevation = 4.dp,
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                                .border(
-                                    border = BorderStroke(
-                                        1.dp,
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable {
-                                    viewModel.selecionarMes(
-                                        uiState.mesSelecionado.minusMonths(1)
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowLeft,
-                                contentDescription = "Mês anterior",
-                                tint = CorTextoGastos,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Text(
-                            text = uiState.mesSelecionado.formatarMesCompleto(),
-                            color = CorTextoGastos,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .shadow(
-                                    elevation = 4.dp,
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                                .border(
-                                    border = BorderStroke(
-                                        1.dp,
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable {
-                                    viewModel.selecionarMes(
-                                        uiState.mesSelecionado.plusMonths(1)
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowRight,
-                                contentDescription = "Próximo mês",
-                                tint = CorTextoGastos,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 6.dp
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "HISTÓRICO",
-                                    color = Color(0xFF6F7C76),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                Text(
-                                    text = "Toque para selecionar",
-                                    color = Color(0xFFB5C0BA),
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            GraficoBarrasMensal(
-                                gastosMensais = uiState.gastosMensais,
-                                mesSelecionado = uiState.mesSelecionado,
-                                onSelecionarMes = viewModel::selecionarMes
-                            )
-                        }
-                    }
-                }
-
-                item {
-                    ResumoMesSelecionado(
-                        mesSelecionado = uiState.mesSelecionado,
-                        totalCentavos = uiState.totalMesSelecionado,
-                        gastosMensais = uiState.gastosMensais,
-                        quantidadeLancamentos = uiState.despesasDoMes.size
+        ) { innerPadding ->
+            if (uiState.carregando) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = CorGastos
                     )
                 }
-
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        // Retiramos o padding geral desta Column para a linha poder encostar nas bordas
-                        Column {
-                            // 1. Cabeçalho com o seu próprio padding
-                            Row(
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentPadding = PaddingValues(
+                        start = 20.dp,
+                        end = 20.dp,
+                        top = 16.dp,
+                        bottom = 110.dp // Espaço extra para o FAB e Barra Inferior não cobrirem o conteúdo
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .size(32.dp)
+                                    .shadow(
+                                        elevation = 4.dp,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .border(
+                                        border = BorderStroke(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable {
+                                        viewModel.selecionarMes(
+                                            uiState.mesSelecionado.minusMonths(1)
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "POR CATEGORIA",
-                                    color = Color(0xFF6F7C76), // Deixei no tom de cinza padrão
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowLeft,
+                                    contentDescription = "Mês anterior",
+                                    tint = CorTextoGastos,
+                                    modifier = Modifier.size(20.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
                             }
 
-                            // 2. Traço cinza longo (HorizontalDivider)
-                            HorizontalDivider(
-                                color = Color(0xFFE1E7E3), // Cinza bem suave
-                                thickness = 1.dp
+                            Text(
+                                text = uiState.mesSelecionado.formatarMesCompleto(),
+                                color = CorTextoGastos,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
                             )
 
-                            // 3. Conteúdo da lista de categorias (com o padding aplicado novamente)
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .shadow(
+                                        elevation = 4.dp,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .border(
+                                        border = BorderStroke(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable {
+                                        viewModel.selecionarMes(
+                                            uiState.mesSelecionado.plusMonths(1)
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = "Próximo mês",
+                                    tint = CorTextoGastos,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = 6.dp
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
                             Column(
                                 modifier = Modifier.padding(16.dp)
                             ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "HISTÓRICO",
+                                        color = Color(0xFF6F7C76),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
 
-                                Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Toque para selecionar",
+                                        color = Color(0xFFB5C0BA),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
 
-                                // lista dinâmica de categorias (com porcentagens que somam 100% e barra contínua)
-                                val categorias = uiState.gastosPorCategoria
-                                val totalCentavos = categorias.sumOf { it.totalGasto }
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                                if (categorias.isNotEmpty()) {
-                                    // calcula porcentagens reais (float)
-                                    val rawPercents = categorias.map { gasto ->
-                                        if (totalCentavos > 0L) {
-                                            gasto.totalGasto.toFloat() / totalCentavos.toFloat() * 100f
-                                        } else {
-                                            0f
+                                GraficoBarrasMensal(
+                                    gastosMensais = uiState.gastosMensais,
+                                    mesSelecionado = uiState.mesSelecionado,
+                                    onSelecionarMes = viewModel::selecionarMes
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        ResumoMesSelecionado(
+                            mesSelecionado = uiState.mesSelecionado,
+                            totalCentavos = uiState.totalMesSelecionado,
+                            gastosMensais = uiState.gastosMensais,
+                            quantidadeLancamentos = uiState.despesasDoMes.size
+                        )
+                    }
+
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "POR CATEGORIA",
+                                        color = Color(0xFF6F7C76),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+
+                                HorizontalDivider(
+                                    color = Color(0xFFE1E7E3),
+                                    thickness = 1.dp
+                                )
+
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    val categorias = uiState.gastosPorCategoria
+                                    val totalCentavos = categorias.sumOf { it.totalGasto }
+
+                                    if (categorias.isNotEmpty()) {
+                                        val rawPercents = categorias.map { gasto ->
+                                            if (totalCentavos > 0L) {
+                                                gasto.totalGasto.toFloat() / totalCentavos.toFloat() * 100f
+                                            } else {
+                                                0f
+                                            }
                                         }
-                                    }
 
-                                    // converte para inteiros por floor e distribui o resto para somar 100
-                                    val floorInts = rawPercents.map { kotlin.math.floor(it).toInt() }.toMutableList()
-                                    var diff = 100 - floorInts.sum()
-                                    if (diff > 0) {
-                                        // calcula as "frações" para decidir onde dar +1
-                                        val remainders = rawPercents.mapIndexed { idx, v -> idx to (v - kotlin.math.floor(v)) }
-                                            .sortedByDescending { it.second }
-                                        var i = 0
-                                        while (diff > 0 && i < remainders.size) {
-                                            floorInts[remainders[i].first] = floorInts[remainders[i].first] + 1
-                                            diff--
-                                            i++
+                                        val floorInts = rawPercents.map { kotlin.math.floor(it).toInt() }.toMutableList()
+                                        var diff = 100 - floorInts.sum()
+                                        if (diff > 0) {
+                                            val remainders = rawPercents.mapIndexed { idx, v -> idx to (v - kotlin.math.floor(v)) }
+                                                .sortedByDescending { it.second }
+                                            var i = 0
+                                            while (diff > 0 && i < remainders.size) {
+                                                floorInts[remainders[i].first] = floorInts[remainders[i].first] + 1
+                                                diff--
+                                                i++
+                                            }
                                         }
-                                    }
 
-                                    // renderiza cada categoria usando índices
-                                    categorias.forEachIndexed { index, gasto ->
-                                        val percentualReal = rawPercents.getOrNull(index) ?: 0f
-                                        val percentualAjustado = floorInts.getOrNull(index) ?: 0
+                                        categorias.forEachIndexed { index, gasto ->
+                                            val percentualReal = rawPercents.getOrNull(index) ?: 0f
+                                            val percentualAjustado = floorInts.getOrNull(index) ?: 0
 
-                                        Column {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                // ícone de categoria (usa iconeChave quando disponível)
-                                                IconeCategoriaPill(
-                                                    iconeChave = gasto.iconeChave,
-                                                    corHex = gasto.corHex
-                                                )
-
-                                                Spacer(modifier = Modifier.width(12.dp))
-
-                                                // nome categoria
-                                                Text(
-                                                    text = gasto.nomeCategoria,
-                                                    modifier = Modifier.weight(1f),
-                                                    color = CorTextoGastos,
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-
-                                                Spacer(modifier = Modifier.width(8.dp))
-
-                                                // valor e percentual ajustado (exibe inteiro que soma 100)
-                                                Column(horizontalAlignment = Alignment.End) {
-                                                    Text(
-                                                        text = gasto.totalGasto.formatarMoeda(),
-                                                        color = CorTextoGastos,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        fontWeight = FontWeight.Bold
+                                            Column {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(vertical = 8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    IconeCategoriaPill(
+                                                        iconeChave = gasto.iconeChave,
+                                                        corHex = gasto.corHex
                                                     )
-                                                    // porcentagem em cinza (onSurfaceVariant)
+
+                                                    Spacer(modifier = Modifier.width(12.dp))
+
                                                     Text(
-                                                        text = "${percentualAjustado}%",
-                                                        color = Color(0xFF78909C),
-                                                        style = MaterialTheme.typography.labelSmall
+                                                        text = gasto.nomeCategoria,
+                                                        modifier = Modifier.weight(1f),
+                                                        color = CorTextoGastos,
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
+
+                                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                                    Column(horizontalAlignment = Alignment.End) {
+                                                        Text(
+                                                            text = gasto.totalGasto.formatarMoeda(),
+                                                            color = CorTextoGastos,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        Text(
+                                                            text = "${percentualAjustado}%",
+                                                            color = Color(0xFF78909C),
+                                                            style = MaterialTheme.typography.labelSmall
+                                                        )
+                                                    }
+                                                }
+
+                                                val fraction = (percentualReal / 100f).coerceIn(0f, 1f)
+                                                val animatedFraction by animateFloatAsState(
+                                                    targetValue = fraction,
+                                                    animationSpec = tween(durationMillis = 600)
+                                                )
+
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(8.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth(animatedFraction)
+                                                            .height(8.dp)
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(gasto.corHex.toComposeColor())
                                                     )
                                                 }
+
+                                                Spacer(modifier = Modifier.height(8.dp))
                                             }
+                                        }
+                                    } else {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
 
-                                            // barra contínua proporcional ao percentual real (animada)
-                                            val fraction = (percentualReal / 100f).coerceIn(0f, 1f)
-                                            val animatedFraction by animateFloatAsState(
-                                                targetValue = fraction,
-                                                animationSpec = tween(durationMillis = 600)
+                    item {
+                        var sortExpanded by remember { mutableStateOf(false) }
+                        var sortMode by remember { mutableStateOf(SortMode.DATA) }
+
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "LANÇAMENTOS",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color(0xFF6F7C76),
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Box {
+                                    androidx.compose.material3.Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color.White,
+                                        border = BorderStroke(1.dp, Color(0xFFE6EFEA)),
+                                        modifier = Modifier
+                                            .height(36.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable { sortExpanded = true }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Sort,
+                                                contentDescription = "Ordenar",
+                                                tint = Color(0xFF78909C),
+                                                modifier = Modifier.size(18.dp)
                                             )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = if (sortMode == SortMode.DATA) "Data" else "Valor",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF78909C)
+                                            )
+                                        }
+                                    }
 
+                                    MaterialTheme(
+                                        shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(12.dp))
+                                    ) {
+                                        DropdownMenu(
+                                            expanded = sortExpanded,
+                                            onDismissRequest = { sortExpanded = false },
+                                            modifier = Modifier
+                                                .width(125.dp)
+                                                .background(Color.White)
+                                                .border(BorderStroke(1.dp, Color(0xFFE1E7E3)), RoundedCornerShape(12.dp))
+                                        ) {
+                                            val selectedData = sortMode == SortMode.DATA
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .height(8.dp)
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant) // track
+                                                    .background(if (selectedData) CorGastos.copy(alpha = 0.12f) else Color.Transparent)
+                                                    .clickable {
+                                                        sortMode = SortMode.DATA
+                                                        sortExpanded = false
+                                                    }
+                                                    .padding(vertical = 10.dp, horizontal = 12.dp)
                                             ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth(animatedFraction)
-                                                        .height(8.dp)
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(gasto.corHex.toComposeColor()) // filled portion
+                                                Text(
+                                                    text = "Mais recentes",
+                                                    color = if (selectedData) CorGastos else Color(0xFF78909C),
+                                                    fontWeight = if (selectedData) FontWeight.SemiBold else FontWeight.Medium,
+                                                    style = MaterialTheme.typography.labelMedium
                                                 )
                                             }
 
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                            val selectedValor = sortMode == SortMode.VALOR
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(if (selectedValor) CorGastos.copy(alpha = 0.12f) else Color.Transparent)
+                                                    .clickable {
+                                                        sortMode = SortMode.VALOR
+                                                        sortExpanded = false
+                                                    }
+                                                    .padding(vertical = 10.dp, horizontal = 12.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Maior valor",
+                                                    color = if (selectedValor) CorGastos else Color(0xFF78909C),
+                                                    fontWeight = if (selectedValor) FontWeight.SemiBold else FontWeight.Medium,
+                                                    style = MaterialTheme.typography.labelMedium
+                                                )
+                                            }
                                         }
                                     }
-                                } else {
-                                    // sem categorias: manter um espaço (ou mensagem)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            val despesasOrdenadas: List<DespesaDetalhada> = when (sortMode) {
+                                SortMode.DATA -> uiState.despesasDoMes.sortedByDescending { it.dataCompra }
+                                SortMode.VALOR -> uiState.despesasDoMes.sortedByDescending { it.valor }
+                            }
+
+                            fun dateOf(d: DespesaDetalhada) = Instant.ofEpochMilli(d.dataCompra).atZone(ZoneOffset.UTC).toLocalDate()
+
+                            val despesasPorDia: Map<java.time.LocalDate, List<DespesaDetalhada>> =
+                                despesasOrdenadas.groupBy { desp -> dateOf(desp) }
+
+                            val diasOrdenados: List<java.time.LocalDate> = if (sortMode == SortMode.DATA) {
+                                despesasPorDia.keys.sortedDescending()
+                            } else {
+                                despesasOrdenadas.map { dateOf(it) }.distinct()
+                            }
+
+                            diasOrdenados.forEach { dia ->
+                                val listaDoDia = despesasOrdenadas.filter { dateOf(it) == dia }
+                                Text(
+                                    text = dia.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("pt", "BR"))),
+                                    color = Color(0xFF6F7C76),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(vertical = 6.dp)
+                                )
+
+                                listaDoDia.forEach { desp ->
+                                    LancamentoItem(
+                                        despesa = desp,
+                                        cartoes = uiState.cartoes,
+                                        onLongPress = { despesaParaExcluir = desp },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
                                     Spacer(modifier = Modifier.height(8.dp))
                                 }
                             }
                         }
                     }
                 }
-
-                item {
-                    // Estado local de ordenação
-                    var sortExpanded by remember { mutableStateOf(false) }
-                    var sortMode by remember { mutableStateOf(SortMode.DATA) }
-
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "LANÇAMENTOS",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = Color(0xFF6F7C76), // <-- Cor alterada para cinza
-                                fontWeight = FontWeight.Bold
-                            )
-
-
-                            // botão de ordenação estilizado: pill branco com ícone + texto (Data / Valor)
-                            Box {
-                                // botão visível (pill branco)
-                                androidx.compose.material3.Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = Color.White,
-                                    border = BorderStroke(1.dp, Color(0xFFE6EFEA)),
-                                    modifier = Modifier
-                                        .height(36.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable { sortExpanded = true }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Sort,
-                                            contentDescription = "Ordenar",
-                                            tint = Color(0xFF78909C),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = if (sortMode == SortMode.DATA) "Data" else "Valor",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF78909C)
-                                        )
-                                    }
-                                }
-
-
-                                // Usando MaterialTheme para forçar o arredondamento perfeito do menu nativo
-                                MaterialTheme(
-                                    shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(12.dp))
-                                ) {
-                                    DropdownMenu(
-                                        expanded = sortExpanded,
-                                        onDismissRequest = { sortExpanded = false },
-                                        modifier = Modifier
-                                            .width(125.dp) // 1. Largura da caixinha reduzida
-                                            .background(Color.White)
-                                            .border(BorderStroke(1.dp, Color(0xFFE1E7E3)), RoundedCornerShape(12.dp))
-                                    ) {
-                                        // item: Mais recentes (DATA)
-                                        val selectedData = sortMode == SortMode.DATA
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .background(if (selectedData) CorGastos.copy(alpha = 0.12f) else Color.Transparent)
-                                                .clickable {
-                                                    sortMode = SortMode.DATA
-                                                    sortExpanded = false
-                                                }
-                                                .padding(vertical = 10.dp, horizontal = 12.dp) // 2. Espaçamento (padding) reduzido
-                                        ) {
-                                            Text(
-                                                text = "Mais recentes",
-                                                color = if (selectedData) CorGastos else Color(0xFF78909C),
-                                                fontWeight = if (selectedData) FontWeight.SemiBold else FontWeight.Medium,
-                                                style = MaterialTheme.typography.labelMedium // 3. Fonte menor
-                                            )
-                                        }
-
-                                        // item: Maior valor (VALOR)
-                                        val selectedValor = sortMode == SortMode.VALOR
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .background(if (selectedValor) CorGastos.copy(alpha = 0.12f) else Color.Transparent)
-                                                .clickable {
-                                                    sortMode = SortMode.VALOR
-                                                    sortExpanded = false
-                                                }
-                                                .padding(vertical = 10.dp, horizontal = 12.dp) // 2. Espaçamento (padding) reduzido
-                                        ) {
-                                            Text(
-                                                text = "Maior valor",
-                                                color = if (selectedValor) CorGastos else Color(0xFF78909C),
-                                                fontWeight = if (selectedValor) FontWeight.SemiBold else FontWeight.Medium,
-                                                style = MaterialTheme.typography.labelMedium // 3. Fonte menor
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Preparar lista ordenada conforme modo
-                        val despesasOrdenadas: List<DespesaDetalhada> = when (sortMode) {
-                            SortMode.DATA -> uiState.despesasDoMes.sortedByDescending { it.dataCompra } // mais recentes primeiro
-                            SortMode.VALOR -> uiState.despesasDoMes.sortedByDescending { it.valor } // maior valor primeiro
-                        }
-
-                        // Agrupar por LocalDate (UTC) para mostrar cabeçalhos "28 de julho", etc.
-                        fun dateOf(d: DespesaDetalhada) = Instant.ofEpochMilli(d.dataCompra).atZone(ZoneOffset.UTC).toLocalDate()
-
-                        val despesasPorDia: Map<java.time.LocalDate, List<DespesaDetalhada>> =
-                            despesasOrdenadas.groupBy { desp -> dateOf(desp) }
-
-// Dias em ordem:
-// - se ordenar por DATA: dias ordenados por data desc (comportamento antigo)
-// - se ordenar por VALOR: usamos a ordem dos dias conforme aparecem em despesasOrdenadas (garante dia do maior valor primeiro)
-                        val diasOrdenados: List<java.time.LocalDate> = if (sortMode == SortMode.DATA) {
-                            despesasPorDia.keys.sortedDescending()
-                        } else {
-                            // mantém a ordem de aparição na lista ordenada por valor e remove duplicatas mantendo ordem
-                            despesasOrdenadas.map { dateOf(it) }.distinct()
-                        }
-
-                        // render por dia
-                        diasOrdenados.forEach { dia ->
-                            val listaDoDia = despesasOrdenadas.filter { dateOf(it) == dia }
-                            // cabeçalho da data
-                            Text(
-                                text = dia.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("pt", "BR"))),
-                                color = Color(0xFF6F7C76), // <-- Cor alterada para cinza
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(vertical = 6.dp)
-                            )
-
-                            // cada lançamento do dia
-                            listaDoDia.forEach { desp ->
-                                // componente do card do lançamento
-                                LancamentoItem(
-                                    despesa = desp,
-                                    cartoes = uiState.cartoes,
-                                    onLongPress = { despesaParaExcluir = desp },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    }
-                }
             }
         }
-    }
 
+
+        BarraNavegacaoInferior(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            selectedIndex = selectedIndex,
+            onItemSelected = { index ->
+                selectedIndex = index
+                when (index) {
+                    0 -> onNavegarInicio()
+                    1 -> onNavegarTransacoes()
+                    2 -> onNavegarGastos()
+                    3 -> onNavegarEdicao()
+                }
+            },
+            onAdicionarDespesa = onAdicionarDespesa
+        )
+    }
 }
 
 private enum class SortMode {

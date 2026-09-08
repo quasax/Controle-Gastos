@@ -114,6 +114,7 @@ import com.example.controlegastos.R
 import com.example.controlegastos.domain.model.Categoria
 import com.example.controlegastos.domain.model.ContaSaldo
 import com.example.controlegastos.domain.model.TipoContaSaldo
+import com.example.controlegastos.ui.components.BarraNavegacaoInferior
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -134,12 +135,20 @@ private val CorBordaChip = Color(0xFFD0D7D3)
 @Composable
 fun EdicaoScreen(
  onVoltar: () -> Unit,
+ onNavegarInicio: () -> Unit = {},
+ onNavegarTransacoes: () -> Unit = {},
+ onNavegarGastos: () -> Unit = {},
+ onNavegarEdicao: () -> Unit = {},
+ onAdicionarDespesa: () -> Unit = {},
  viewModel: EdicaoViewModel = hiltViewModel()
 ) {
  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
  val snackbarHostState = remember { SnackbarHostState() }
  var secaoSelecionada by remember { mutableIntStateOf(0) }
  var mostrarFormularioSaldo by remember { mutableStateOf(false) }
+
+ // Edição está na posição 3 da barra de navegação inferior
+ var selectedIndex by remember { mutableStateOf(3) }
 
  LaunchedEffect(uiState.mensagem) {
   uiState.mensagem?.let {
@@ -148,309 +157,327 @@ fun EdicaoScreen(
   }
  }
 
- Scaffold(
-  topBar = {
-   TopBarEdicao(
-    onVoltar = onVoltar,
-    titulo = "Edição",
-    descricao = when (secaoSelecionada) {
-     0 -> "Gerencie as categorias dos seus gastos"
-     1 -> "Configure os cartões utilizados"
-     2 -> "Cadastre contas, carteira e saldo reservado"
-     else -> ""
-    }
-   ) {
-    AbasEdicao(
-     secaoSelecionada = secaoSelecionada,
-     onSelecionarSecao = { secaoSelecionada = it }
-    )
-   }
-  },
-  snackbarHost = {
-   SnackbarHost(hostState = snackbarHostState)
-  }
- ) { innerPadding ->
-  if (uiState.carregando) {
-   Box(
-    modifier = Modifier
-     .fillMaxSize()
-     .padding(innerPadding),
-    contentAlignment = Alignment.Center
-   ) {
-    CircularProgressIndicator(color = CorEdicao)
-   }
-  } else {
-   LazyColumn(
-    modifier = Modifier
-     .fillMaxSize()
-     .padding(innerPadding)
-     .background(CorFundo),
-    contentPadding = PaddingValues(16.dp),
-    verticalArrangement = Arrangement.spacedBy(16.dp)
-   ) {
-    when (secaoSelecionada) {
-     0 -> {
-      item {
-       CategoriasContent(
-        uiState = uiState,
-        onSelecionarSugerida = viewModel::selecionarCategoriaSugerida,
-        onNomeAlterado = viewModel::atualizarNomeCategoria,
-        onTetoAlterado = viewModel::atualizarTetoCategoria,
-        onSalvar = viewModel::salvarCategoria,
-        onAlternarAtivacao = { categoria, ativa ->
-         viewModel.alterarAtivacaoCategoria(
-          categoria,
-          ativa
-         )
-        },
-        onRemoverCategoria = { categoria ->
-         viewModel.excluirCategoria(categoria.id)
-        },
-        onSelecionarEmoji = viewModel::atualizarIconeCategoria
-       )
-      }
+ // Envolvemos a tela em um Box para permitir a fixação da barra inferior flutuante
+ Box(modifier = Modifier.fillMaxSize().background(CorFundo)) {
+  Scaffold(
+   modifier = Modifier.fillMaxSize(),
+   containerColor = CorFundo,
+   topBar = {
+    TopBarEdicao(
+     onVoltar = onVoltar,
+     titulo = "Edição",
+     descricao = when (secaoSelecionada) {
+      0 -> "Gerencie as categorias dos seus gastos"
+      1 -> "Configure os cartões utilizados"
+      2 -> "Cadastre contas, carteira e saldo reservado"
+      else -> ""
      }
-
-     1 -> {
-      val cartoesAtivos = uiState.cartoes.filter { it.ativo }
-      val cartoesInativos = uiState.cartoes.filter { !it.ativo }
-
-      val totalLimiteCentavos = uiState.cartoes.sumOf {
-       it.limiteCentavos
+    ) {
+     AbasEdicao(
+      secaoSelecionada = secaoSelecionada,
+      onSelecionarSecao = { secaoSelecionada = it }
+     )
+    }
+   },
+   snackbarHost = {
+    SnackbarHost(hostState = snackbarHostState)
+   }
+  ) { innerPadding ->
+   if (uiState.carregando) {
+    Box(
+     modifier = Modifier
+      .fillMaxSize()
+      .padding(innerPadding),
+     contentAlignment = Alignment.Center
+    ) {
+     CircularProgressIndicator(color = CorEdicao)
+    }
+   } else {
+    LazyColumn(
+     modifier = Modifier
+      .fillMaxSize()
+      .padding(innerPadding)
+      .background(CorFundo),
+     // Adicionado padding inferior de 110.dp para o conteúdo não ficar por baixo da barra
+     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 110.dp),
+     verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+     when (secaoSelecionada) {
+      0 -> {
+       item {
+        CategoriasContent(
+         uiState = uiState,
+         onSelecionarSugerida = viewModel::selecionarCategoriaSugerida,
+         onNomeAlterado = viewModel::atualizarNomeCategoria,
+         onTetoAlterado = viewModel::atualizarTetoCategoria,
+         onSalvar = viewModel::salvarCategoria,
+         onAlternarAtivacao = { categoria, ativa ->
+          viewModel.alterarAtivacaoCategoria(
+           categoria,
+           ativa
+          )
+         },
+         onRemoverCategoria = { categoria ->
+          viewModel.excluirCategoria(categoria.id)
+         },
+         onSelecionarEmoji = viewModel::atualizarIconeCategoria
+        )
+       }
       }
 
-      val totalDisponivelCentavos = cartoesAtivos.sumOf {
-       it.limiteCentavos.coerceAtLeast(0L)
-      }
+      1 -> {
+       val cartoesAtivos = uiState.cartoes.filter { it.ativo }
+       val cartoesInativos = uiState.cartoes.filter { !it.ativo }
 
-      fun alterarAtivacaoPorCartao(
-       cartao: com.example.controlegastos.domain.model.Cartao,
-       ativo: Boolean
-      ) {
-       instituicoesPredefinidas
-        .firstOrNull { it.chave == cartao.marcaChave }
-        ?.let { instituicao ->
-         viewModel.alterarAtivacaoCartao(
-          instituicao,
-          ativo
+       val totalLimiteCentavos = uiState.cartoes.sumOf {
+        it.limiteCentavos
+       }
+
+       val totalDisponivelCentavos = cartoesAtivos.sumOf {
+        it.limiteCentavos.coerceAtLeast(0L)
+       }
+
+       fun alterarAtivacaoPorCartao(
+        cartao: com.example.controlegastos.domain.model.Cartao,
+        ativo: Boolean
+       ) {
+        instituicoesPredefinidas
+         .firstOrNull { it.chave == cartao.marcaChave }
+         ?.let { instituicao ->
+          viewModel.alterarAtivacaoCartao(
+           instituicao,
+           ativo
+          )
+         }
+       }
+
+       item {
+        ResumoCartoesCard(
+         limiteDisponivelCentavos = totalDisponivelCentavos,
+         totalLimiteCentavos = totalLimiteCentavos,
+         ativos = cartoesAtivos.size
+        )
+       }
+
+       cartoesAtivos.forEach { cartao ->
+        item(key = "ativo_${cartao.id}") {
+         val limiteCentavos = cartao.limiteCentavos
+         val usadoCentavos = 0L
+         val disponivelCentavos = (
+                 limiteCentavos - usadoCentavos
+                 ).coerceAtLeast(0L)
+
+         CartaoDetalhado(
+          cartao = cartao,
+          disponivelCentavos = disponivelCentavos,
+          usadoCentavos = usadoCentavos,
+          limiteCentavos = limiteCentavos,
+          ativo = true,
+          onAtivacaoAlterada = { novo ->
+           alterarAtivacaoPorCartao(cartao, novo)
+          },
+          onSalvarDatas = { fechamento, vencimento ->
+           viewModel.editarConfiguracaoCartao(cartao)
+
+           viewModel.atualizarDiasCartao(
+            fechamento.toString(),
+            vencimento.toString()
+           )
+
+           viewModel.salvarConfiguracaoCartao()
+          }
          )
         }
-      }
+       }
 
-      item {
-       ResumoCartoesCard(
-        limiteDisponivelCentavos = totalDisponivelCentavos,
-        totalLimiteCentavos = totalLimiteCentavos,
-        ativos = cartoesAtivos.size
-       )
-      }
-
-      cartoesAtivos.forEach { cartao ->
-       item(key = "ativo_${cartao.id}") {
-        val limiteCentavos = cartao.limiteCentavos
-        val usadoCentavos = 0L
-        val disponivelCentavos = (
-                limiteCentavos - usadoCentavos
-                ).coerceAtLeast(0L)
-
-        CartaoDetalhado(
-         cartao = cartao,
-         disponivelCentavos = disponivelCentavos,
-         usadoCentavos = usadoCentavos,
-         limiteCentavos = limiteCentavos,
-         ativo = true,
-         onAtivacaoAlterada = { novo ->
-          alterarAtivacaoPorCartao(cartao, novo)
+       item {
+        InativasSectionCartoes(
+         cartoesInativos = cartoesInativos,
+         onAtivarCartao = { id, ativo ->
+          uiState.cartoes
+           .firstOrNull { it.id == id }
+           ?.let { cartao ->
+            alterarAtivacaoPorCartao(cartao, ativo)
+           }
          },
-         onSalvarDatas = { fechamento, vencimento ->
-          viewModel.editarConfiguracaoCartao(cartao)
+         onExcluirCartao = viewModel::excluirCartao,
+         onAdicionarCartao = {
+           instituicao,
+           fechamento,
+           vencimento,
+           limiteCentavos ->
 
-          viewModel.atualizarDiasCartao(
-           fechamento.toString(),
-           vencimento.toString()
+          viewModel.adicionarCartao(
+           instituicaoChave = instituicao.chave,
+           nome = instituicao.nome,
+           diaFechamento = fechamento,
+           diaVencimento = vencimento,
+           limiteCentavos = limiteCentavos
           )
-
-          viewModel.salvarConfiguracaoCartao()
          }
         )
        }
       }
 
-      item {
-       InativasSectionCartoes(
-        cartoesInativos = cartoesInativos,
-        onAtivarCartao = { id, ativo ->
-         uiState.cartoes
-          .firstOrNull { it.id == id }
-          ?.let { cartao ->
-           alterarAtivacaoPorCartao(cartao, ativo)
-          }
-        },
-        onExcluirCartao = viewModel::excluirCartao,
-        onAdicionarCartao = {
-          instituicao,
-          fechamento,
-          vencimento,
-          limiteCentavos ->
-
-         viewModel.adicionarCartao(
-          instituicaoChave = instituicao.chave,
-          nome = instituicao.nome,
-          diaFechamento = fechamento,
-          diaVencimento = vencimento,
-          limiteCentavos = limiteCentavos
-         )
+      2 -> {
+       item {
+        val contasAtivas = uiState.contas.filter { it.ativo }
+        val totalAtivo = contasAtivas.sumOf {
+         it.saldoCentavos
         }
-       )
-      }
-     }
 
-     2 -> {
-      item {
-       val contasAtivas = uiState.contas.filter { it.ativo }
-       val totalAtivo = contasAtivas.sumOf {
-        it.saldoCentavos
+        PatrimonioTotalCard(
+         totalAtivoCentavos = totalAtivo,
+         contasAtivasCount = contasAtivas.size
+        )
        }
 
-       PatrimonioTotalCard(
-        totalAtivoCentavos = totalAtivo,
-        contasAtivasCount = contasAtivas.size
-       )
-      }
-
-
-
-
-      items(
-       items = uiState.contas,
-       key = { it.id }
-      ) { conta ->
-       LinhaContaSaldo(
-        conta = conta,
-        onAtivacaoAlterada = { ativa ->
-         viewModel.alterarAtivacaoConta(conta, ativa)
-        }
-       )
-      }
-
-      item {
-       if (!mostrarFormularioSaldo) {
-        Card(
-         modifier = Modifier
-          .fillMaxWidth()
-          .height(48.dp)
-          .border(
-           border = BorderStroke(
-            width = 1.dp,
-            color = CorBordaChip
-           ),
-           shape = RoundedCornerShape(12.dp)
-          )
-          .clickable {
-           mostrarFormularioSaldo = true
-          },
-         shape = RoundedCornerShape(12.dp),
-         colors = CardDefaults.cardColors(
-          containerColor = Color.Transparent
-         )
-        ) {
-         Box(
-          modifier = Modifier.fillMaxSize(),
-          contentAlignment = Alignment.Center
-         ) {
-          Text(
-           text = "+ Adicionar saldo",
-           color = CorChipTexto,
-           style = MaterialTheme.typography.bodyLarge,
-           fontWeight = FontWeight.Medium
-          )
+       items(
+        items = uiState.contas,
+        key = { it.id }
+       ) { conta ->
+        LinhaContaSaldo(
+         conta = conta,
+         onAtivacaoAlterada = { ativa ->
+          viewModel.alterarAtivacaoConta(conta, ativa)
          }
-        }
-       } else {
-        Column {
-         val formatoCancelar = RoundedCornerShape(12.dp)
-         val intervalosTracejados = floatArrayOf(14f, 8f)
+        )
+       }
 
-         Box(
+       item {
+        if (!mostrarFormularioSaldo) {
+         Card(
           modifier = Modifier
            .fillMaxWidth()
            .height(48.dp)
-           .clip(formatoCancelar)
-           .clickable {
-            mostrarFormularioSaldo = false
-           }
-           .drawBehind {
-            val pincel = Paint().apply {
-             color = CorEdicao
-             style = PaintingStyle.Stroke
-             strokeWidth = 1.4f * density
-             pathEffect = PathEffect.dashPathEffect(
-              intervals = intervalosTracejados,
-              phase = 0f
-             )
-            }
-
-            val raio = 12.dp.toPx()
-
-            drawIntoCanvas { canvas ->
-             canvas.drawRoundRect(
-              left = 0f,
-              top = 0f,
-              right = size.width,
-              bottom = size.height,
-              radiusX = raio,
-              radiusY = raio,
-              paint = pincel
-             )
-            }
-           },
-          contentAlignment = Alignment.Center
-         ) {
-          Row(
-           verticalAlignment = Alignment.CenterVertically,
-           horizontalArrangement = Arrangement.Center
-          ) {
-           Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Cancelar",
-            tint = CorEdicao,
-            modifier = Modifier.size(18.dp)
+           .border(
+            border = BorderStroke(
+             width = 1.dp,
+             color = CorBordaChip
+            ),
+            shape = RoundedCornerShape(12.dp)
            )
-
-           Spacer(modifier = Modifier.width(8.dp))
-
+           .clickable {
+            mostrarFormularioSaldo = true
+           },
+          shape = RoundedCornerShape(12.dp),
+          colors = CardDefaults.cardColors(
+           containerColor = Color.Transparent
+          )
+         ) {
+          Box(
+           modifier = Modifier.fillMaxSize(),
+           contentAlignment = Alignment.Center
+          ) {
            Text(
-            text = "Cancelar",
-            color = CorEdicao,
+            text = "+ Adicionar saldo",
+            color = CorChipTexto,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
            )
           }
          }
+        } else {
+         Column {
+          val formatoCancelar = RoundedCornerShape(12.dp)
+          val intervalosTracejados = floatArrayOf(14f, 8f)
 
-         Spacer(modifier = Modifier.height(12.dp))
+          Box(
+           modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(formatoCancelar)
+            .clickable {
+             mostrarFormularioSaldo = false
+            }
+            .drawBehind {
+             val pincel = Paint().apply {
+              color = CorEdicao
+              style = PaintingStyle.Stroke
+              strokeWidth = 1.4f * density
+              pathEffect = PathEffect.dashPathEffect(
+               intervals = intervalosTracejados,
+               phase = 0f
+              )
+             }
 
-         FormularioContaSaldo(
-          uiState = uiState,
-          onInstituicaoSelecionada =
-           viewModel::selecionarInstituicao,
-          onTipoSelecionado =
-           viewModel::selecionarTipoConta,
-          onSaldoAlterado =
-           viewModel::atualizarSaldoInicial,
-          onSalvar = {
-           viewModel.salvarContaSaldo()
-           mostrarFormularioSaldo = false
+             val raio = 12.dp.toPx()
+
+             drawIntoCanvas { canvas ->
+              canvas.drawRoundRect(
+               left = 0f,
+               top = 0f,
+               right = size.width,
+               bottom = size.height,
+               radiusX = raio,
+               radiusY = raio,
+               paint = pincel
+              )
+             }
+            },
+           contentAlignment = Alignment.Center
+          ) {
+           Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+           ) {
+            Icon(
+             imageVector = Icons.Default.Close,
+             contentDescription = "Cancelar",
+             tint = CorEdicao,
+             modifier = Modifier.size(18.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+             text = "Cancelar",
+             color = CorEdicao,
+             style = MaterialTheme.typography.bodyLarge,
+             fontWeight = FontWeight.Medium
+            )
+           }
           }
-         )
+
+          Spacer(modifier = Modifier.height(12.dp))
+
+          FormularioContaSaldo(
+           uiState = uiState,
+           onInstituicaoSelecionada =
+            viewModel::selecionarInstituicao,
+           onTipoSelecionado =
+            viewModel::selecionarTipoConta,
+           onSaldoAlterado =
+            viewModel::atualizarSaldoInicial,
+           onSalvar = {
+            viewModel.salvarContaSaldo()
+            mostrarFormularioSaldo = false
+           }
+          )
+         }
         }
        }
       }
-
      }
     }
    }
   }
+
+  // Barra de navegação inferior fixada no rodapé da EdicaoScreen
+  BarraNavegacaoInferior(
+   modifier = Modifier.align(Alignment.BottomCenter),
+   selectedIndex = selectedIndex,
+   onItemSelected = { index ->
+    selectedIndex = index
+    when (index) {
+     0 -> onNavegarInicio()
+     1 -> onNavegarTransacoes()
+     2 -> onNavegarGastos()
+     3 -> onNavegarEdicao()
+    }
+   },
+   onAdicionarDespesa = onAdicionarDespesa
+  )
  }
 }
 

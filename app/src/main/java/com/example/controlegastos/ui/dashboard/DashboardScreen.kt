@@ -119,6 +119,7 @@ import androidx.compose.foundation.verticalScroll
 import java.text.NumberFormat
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import com.example.controlegastos.ui.components.BarraNavegacaoInferior
 
 
 private val CorCardSaldoAccent = Color(0xFF1B6B4A)
@@ -131,9 +132,11 @@ fun DashboardScreen(
     onVerPendencias: () -> Unit,
     onAbrirConfiguracoes: () -> Unit,
     onAbrirCartoes: () -> Unit,
+    onNavegarGastos: () -> Unit = {}, // Adicionado para suportar a navegação padrão de Gastos
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Dashboard é a tela inicial, logo o índice padrão é 0
     var selectedIndex by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
@@ -145,11 +148,11 @@ fun DashboardScreen(
             topBar = {
                 CardSaldoPrincipalNovo(
                     nomeUsuario = uiState.nomeUsuario,
-                    saldoAtual = uiState.saldoPositivo,        // usa o saldo exposto no uiState
-                    receitas = uiState.totalReceitas,         // total de receitas (placeholder se não houver)
-                    gastos = uiState.resumoMensal.totalGasto, // totalGasto vindo do resumo mensal
-                    totalFaturas = uiState.totalFaturas,      // soma das faturas abertas
-                    visivel = uiState.numerosVisiveis,        // controla visibilidade
+                    saldoAtual = uiState.saldoPositivo,
+                    receitas = uiState.totalReceitas,
+                    gastos = uiState.resumoMensal.totalGasto,
+                    totalFaturas = uiState.totalFaturas,
+                    visivel = uiState.numerosVisiveis,
                     onAlternarVisibilidade = viewModel::alternarVisibilidadeValores,
                     onAbrirConfiguracoes = onAbrirConfiguracoes
                 )
@@ -166,14 +169,12 @@ fun DashboardScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                // AQUI ESTÁ A MÁGICA: Uma única Column com scroll envolvendo TUDO
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
-                        .verticalScroll(rememberScrollState()) // <-- Permite rolar a tela toda
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    // Removido o weight(1f), agora ele assume o tamanho normal dele
                     ConteudoDashboard(
                         modifier = Modifier
                             .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 12.dp),
@@ -183,7 +184,10 @@ fun DashboardScreen(
                     FaturasProximas(
                         cartoes = uiState.cartoes,
                         visivel = uiState.numerosVisiveis,
-                        onVerTodas = onVerTodasTransacoes,
+                        onVerTodas = {
+                            selectedIndex = 1
+                            onVerTodasTransacoes()
+                        },
                         modifier = Modifier.padding(top = 8.dp)
                     )
 
@@ -193,12 +197,11 @@ fun DashboardScreen(
                         numerosVisiveis = uiState.numerosVisiveis,
                         cartoes = uiState.cartoes,
                         onVerTodas = {
+                            selectedIndex = 1 // Transações corresponde ao índice 1
                             onVerTodasTransacoes()
-                            selectedIndex = 2
                         }
                     )
 
-                    // Espaço extra grande no final para o Botão Flutuante (FAB) não tampar as transações
                     Spacer(modifier = Modifier.height(110.dp))
                 }
             }
@@ -210,10 +213,10 @@ fun DashboardScreen(
             onItemSelected = { index ->
                 selectedIndex = index
                 when (index) {
-                    0 -> { /* Início */ }
+                    0 -> { /* Já está no Início */ }
                     1 -> onVerTodasTransacoes()
-                    2 -> onVerPendencias()
-                    3 -> onAbrirCartoes()
+                    2 -> onNavegarGastos() // Aba de Gastos (Índice 2)
+                    3 -> onAbrirConfiguracoes() // Aba de Edição/Configurações (Índice 3)
                 }
             },
             onAdicionarDespesa = onAdicionarDespesa
@@ -1125,153 +1128,6 @@ private fun PainelTransacoes(
         }
     }
 }
-
-
-@Composable
-private fun BarraNavegacaoInferior(
-    modifier: Modifier = Modifier,
-    selectedIndex: Int,
-    onItemSelected: (Int) -> Unit,
-    onAdicionarDespesa: () -> Unit
-) {
-    val activeColor = Color(0xFF1B6B4A)
-    val inactiveColor = Color(0xFF9BA1A6)
-    val barHeight = 76.dp
-    val fabSize = 60.dp
-    val fabProtrusion = 22.dp
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(barHeight + fabProtrusion),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(barHeight),
-            color = Color.White,
-            shadowElevation = 12.dp
-        ) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BottomNavItem(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.Home,
-                    label = "Início",
-                    isSelected = (selectedIndex == 0),
-                    activeColor = activeColor,
-                    inactiveColor = inactiveColor
-                ) { onItemSelected(0) }
-
-                BottomNavItem(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.Assignment,
-                    label = "Transações",
-                    isSelected = (selectedIndex == 1),
-                    activeColor = activeColor,
-                    inactiveColor = inactiveColor
-                ) { onItemSelected(1) }
-
-                // Espaço central reservado para o botão "Novo"
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Bottom
-                ) {
-                    Text(
-                        text = "Novo",
-                        color = inactiveColor,
-                        fontSize = 11.sp, // Ajustado para bater com os outros textos
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                }
-
-                BottomNavItem(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.BarChart,
-                    label = "Gastos",
-                    isSelected = (selectedIndex == 2),
-                    activeColor = activeColor,
-                    inactiveColor = inactiveColor
-                ) { onItemSelected(2) }
-
-                BottomNavItem(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.Settings,
-                    label = "Edição",
-                    isSelected = (selectedIndex == 3),
-                    activeColor = activeColor,
-                    inactiveColor = inactiveColor
-                ) { onItemSelected(3) }
-            }
-        }
-
-        FloatingActionButton(
-            onClick = onAdicionarDespesa,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .size(fabSize),
-            containerColor = activeColor,
-            contentColor = Color.White,
-            shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(
-                defaultElevation = 6.dp,
-                pressedElevation = 10.dp
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "Adicionar despesa",
-                tint = Color.White,
-                modifier = Modifier.size(32.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun BottomNavItem(
-    modifier: Modifier = Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    isSelected: Boolean,
-    activeColor: Color,
-    inactiveColor: Color,
-    onClick: () -> Unit
-) {
-    val color = if (isSelected) activeColor else inactiveColor
-
-    Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .clickable(onClick = onClick), // Removido o padding lateral para dar mais espaço ao texto
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Bottom
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = color,
-            modifier = Modifier.size(26.dp)
-        )
-
-        Text(
-            text = label,
-            color = color,
-            fontSize = 11.sp, // Reduzido levemente para evitar cortes
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1, // Impede que o texto quebre em duas linhas
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-    }
-}
-
 
 private val CorCategoriaFallback = Color(0xFF5F8D84)
 

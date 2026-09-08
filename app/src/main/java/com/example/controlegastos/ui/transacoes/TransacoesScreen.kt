@@ -100,7 +100,7 @@ import com.example.controlegastos.domain.model.TipoLancamento
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.window.Dialog
-
+import com.example.controlegastos.ui.components.BarraNavegacaoInferior
 
 
 private val CorFundoApp = Color(0xFFECF0ED)
@@ -120,6 +120,11 @@ val CorConfirmarPagamento = Color(0xFF225E43)
 @Composable
 fun TransacoesScreen(
     onVoltar: () -> Unit,
+    onNavegarInicio: () -> Unit = {},
+    onNavegarTransacoes: () -> Unit = {},
+    onNavegarGastos: () -> Unit = {},
+    onNavegarEdicao: () -> Unit = {},
+    onAdicionarDespesa: () -> Unit = {},
     viewModel: TransacoesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -131,6 +136,8 @@ fun TransacoesScreen(
     var processandoPagamento by remember { mutableStateOf(false) }
     var faturaParaVer by remember { mutableStateOf<FaturaCartao?>(null) }
 
+    // Transações está na posição 1 da barra de navegação inferior
+    var selectedIndex by remember { mutableStateOf(1) }
 
     val faturas = if (uiState.abaSelecionada == AbaFaturas.ABERTAS) {
         uiState.faturasAbertas
@@ -144,11 +151,12 @@ fun TransacoesScreen(
         it.tipo != TipoContaSaldo.SALDO_RESERVADO
     }
 
+    // 1. ROOT BOX PARA PERMITIR FIXAR A BARRA DE NAVEGAÇÃO NO RODAPÉ
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
             .background(CorFundoApp)
     ) {
-
         var despesasFixasExpandidas by remember {
             mutableStateOf(false)
         }
@@ -182,7 +190,13 @@ fun TransacoesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(20.dp),
+                // 3. PADDING INFERIOR ADICIONADO PARA O CONTEÚDO NÃO FICAR COBERTO PELA BARRA
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = 20.dp,
+                    bottom = 110.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item(key = "mes") {
@@ -306,7 +320,6 @@ fun TransacoesScreen(
                     )
                 }
 
-                // Mostrar o card "Total" somente quando a aba for ABERTAS
                 if (uiState.abaSelecionada == AbaFaturas.ABERTAS) {
                     item(key = "total_faturas") {
                         CardTotalFaturas(
@@ -350,7 +363,6 @@ fun TransacoesScreen(
                             contaSelecionada = null
                         },
                         onVerFatura = {
-                            // abre a telinha de ver fatura
                             faturaParaVer = fatura
                         }
                     )
@@ -419,8 +431,23 @@ fun TransacoesScreen(
                 }
             }
         }
-    }
 
+        // 2. BARRA DE NAVEGAÇÃO INFERIOR FIXADA NA PARTE INFERIOR DO BOX
+        BarraNavegacaoInferior(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            selectedIndex = selectedIndex,
+            onItemSelected = { index ->
+                selectedIndex = index
+                when (index) {
+                    0 -> onNavegarInicio()
+                    1 -> onNavegarTransacoes()
+                    2 -> onNavegarGastos()
+                    3 -> onNavegarEdicao()
+                }
+            },
+            onAdicionarDespesa = onAdicionarDespesa
+        )
+    }
 
     faturaParaVer?.let { fatura ->
         DialogoVerFatura(
@@ -432,54 +459,53 @@ fun TransacoesScreen(
             }
         )
     }
-        // Fica fora do Scaffold para o diálogo não receber blur.
-        faturaParaPagar?.let { fatura ->
-            DialogoPagamento(
-                fatura = fatura,
-                contas = contasDisponiveis,
-                selecionada = contaSelecionada,
-                visivel = true,
-                processando = processandoPagamento,
-                onSelecionarConta = { conta ->
-                    contaSelecionada = conta
-                },
-                onCancelar = {
-                    if (!processandoPagamento) {
+
+    faturaParaPagar?.let { fatura ->
+        DialogoPagamento(
+            fatura = fatura,
+            contas = contasDisponiveis,
+            selecionada = contaSelecionada,
+            visivel = true,
+            processando = processandoPagamento,
+            onSelecionarConta = { conta ->
+                contaSelecionada = conta
+            },
+            onCancelar = {
+                if (!processandoPagamento) {
+                    faturaParaPagar = null
+                    contaSelecionada = null
+                }
+            },
+            onConfirmar = {
+                val conta = contaSelecionada ?: return@DialogoPagamento
+
+                processandoPagamento = true
+
+                viewModel.pagarFatura(
+                    cartaoId = fatura.cartao.id,
+                    contaId = conta.id
+                ) { erro ->
+                    processandoPagamento = false
+
+                    if (erro == null) {
                         faturaParaPagar = null
                         contaSelecionada = null
-                    }
-                },
-                onConfirmar = {
-                    val conta = contaSelecionada ?: return@DialogoPagamento
 
-                    processandoPagamento = true
-
-                    viewModel.pagarFatura(
-                        cartaoId = fatura.cartao.id,
-                        contaId = conta.id
-                    ) { erro ->
-                        processandoPagamento = false
-
-                        if (erro == null) {
-                            faturaParaPagar = null
-                            contaSelecionada = null
-
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Fatura paga com sucesso."
-                                )
-                            }
-                        } else {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar(erro)
-                            }
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = "Fatura paga com sucesso."
+                            )
+                        }
+                    } else {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(erro)
                         }
                     }
                 }
-            )
-        }
+            }
+        )
+    }
 
-    // Dialog para visualizar fatura (lançamentos + total fatura + total fixas)
     faturaParaVer?.let { f ->
         DialogoVerFatura(
             fatura = f,
@@ -488,7 +514,10 @@ fun TransacoesScreen(
             onFechar = { faturaParaVer = null }
         )
     }
-    }
+}
+
+
+
 @Composable
 private fun TopBarTransacoes(
     onVoltar: () -> Unit,
